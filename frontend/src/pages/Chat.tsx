@@ -254,7 +254,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
         {isUser ? (
           <div className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</div>
         ) : (
-          <div className="text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-pre:bg-gray-800 dark:prose-pre:bg-gray-900 prose-pre:text-gray-100 prose-code:text-pink-600 dark:prose-code:text-pink-400 prose-code:bg-gray-100 dark:prose-code:bg-gray-800 prose-code:px-1 prose-code:rounded">
+          <div className="text-sm leading-relaxed chat-markdown">
             <Markdown>{message.content}</Markdown>
           </div>
         )}

@@ -46,7 +46,7 @@ def _save_upload(
     ts = None
     if original_timestamp:
         try:
-            ts = datetime.fromtimestamp(int(original_timestamp) / 1000, tz=timezone.utc)
+            ts = datetime.fromtimestamp(int(original_timestamp) / 1000).replace(tzinfo=None)
         except (ValueError, OSError):
             pass
 
