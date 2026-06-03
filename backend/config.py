@@ -2,7 +2,6 @@ import os
 from pathlib import Path
 from pydantic_settings import BaseSettings
 
-
 BASE_DIR = Path(__file__).resolve().parent
 
 
@@ -11,15 +10,25 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
 
+    # Auth
+    api_key: str = ""  # Set via EVATAR_API_KEY env var; empty = no auth (dev only)
+
     # Storage
     data_dir: Path = BASE_DIR / "data"
     photos_dir: Path = BASE_DIR / "data" / "photos"
     db_path: str = str(BASE_DIR / "data" / "evatar.db")
+    max_upload_bytes: int = 50 * 1024 * 1024  # 50MB per file
 
     # LLM
     llm_base_url: str = "https://token-plan-cn.xiaomimimo.com/v1"
-    llm_api_key: str = "tp-cfnccplzudtfq5ec9h0pm0nvkrsbur576ufr0x8rdolj12h0"
+    llm_api_key: str = ""  # MUST be set via EVATAR_LLM_API_KEY env var
     llm_model: str = "mimo-v2.5"
+    llm_max_tokens: int = 4096
+    llm_temperature: float = 0.1
+
+    # Agent
+    agent_max_rounds: int = 5
+    agent_history_limit: int = 20
 
     # Web search (optional)
     tavily_api_key: str = ""
@@ -37,4 +46,4 @@ settings = Settings()
 
 # Ensure directories exist
 settings.photos_dir.mkdir(parents=True, exist_ok=True)
-(settings.data_dir).mkdir(parents=True, exist_ok=True)
+settings.data_dir.mkdir(parents=True, exist_ok=True)

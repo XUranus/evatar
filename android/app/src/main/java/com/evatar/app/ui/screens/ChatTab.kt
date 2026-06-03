@@ -52,7 +52,7 @@ data class UiConversation(
 fun ChatTab(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val apiClient = remember { ApiClient(context) }
+    val apiClient = remember { ApiClient.getInstance(context) }
 
     var conversations by remember { mutableStateOf(listOf<UiConversation>()) }
     var activeConvId by remember { mutableStateOf<String?>(null) }
@@ -250,9 +250,10 @@ fun ChatTab(modifier: Modifier = Modifier) {
                         ) {
                             Text("发送失败", fontSize = 13.sp, color = MaterialTheme.colorScheme.error, modifier = Modifier.weight(1f))
                             TextButton(onClick = {
-                                val retry = lastFailedMessage!!
-                                lastFailedMessage = null
-                                doSend(retry)
+                                lastFailedMessage?.let { retry ->
+                                    lastFailedMessage = null
+                                    doSend(retry)
+                                }
                             }) { Text("重试", fontSize = 13.sp) }
                             TextButton(onClick = { lastFailedMessage = null }) { Text("取消", fontSize = 13.sp) }
                         }

@@ -89,9 +89,18 @@
     "new_chat": "新对话",
     "no_conversations": "暂无对话",
     "welcome": "Evatar AI 助手",
-    "welcome_desc": "我可以搜索你的截图知识库，也可以帮你搜索互联网。试试问我：",
+    "welcome_desc": "搜索截图知识库、搜索互联网、上传图片分析",
+    "skills": "技能",
+    "skill_label": "技能",
+    "skill_placeholder": "使用「{{name}}」技能...",
     "placeholder": "输入消息...",
-    "send": "发送"
+    "send": "发送",
+    "send_failed": "发送失败",
+    "retry": "重试",
+    "cancel": "取消",
+    "cancel_skill": "取消技能",
+    "unknown_error": "未知错误",
+    "load_error": "加载失败"
   },
   "presets": {
     "mimo": "小米 MiMo",

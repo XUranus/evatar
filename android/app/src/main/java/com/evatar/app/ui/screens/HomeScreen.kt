@@ -32,7 +32,7 @@ import kotlinx.coroutines.withContext
 fun HomeScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val syncManager = remember { SyncManager(context) }
+    val syncManager = remember { SyncManager(context.applicationContext) }
 
     var serverConnected by remember { mutableStateOf(false) }
     var isSyncRunning by remember { mutableStateOf(false) }

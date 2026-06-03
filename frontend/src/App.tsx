@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard';
 import Photos from './pages/Photos';
 import ChatPage from './pages/Chat';
 import SettingsPage from './pages/Settings';
+import ErrorBoundary from './components/ErrorBoundary';
 import './index.css';
 
 type Page = 'dashboard' | 'photos' | 'chat' | 'settings';
@@ -75,10 +76,12 @@ export default function App() {
 
       {/* Main content */}
       <main className={`flex-1 overflow-auto ${page === 'chat' ? 'p-0' : 'p-6'}`}>
-        {page === 'dashboard' && <Dashboard />}
-        {page === 'photos' && <Photos />}
-        {page === 'chat' && <ChatPage />}
-        {page === 'settings' && <SettingsPage />}
+        <ErrorBoundary>
+          {page === 'dashboard' && <Dashboard />}
+          {page === 'photos' && <Photos />}
+          {page === 'chat' && <ChatPage />}
+          {page === 'settings' && <SettingsPage />}
+        </ErrorBoundary>
       </main>
     </div>
   );

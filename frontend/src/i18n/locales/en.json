@@ -89,9 +89,18 @@
     "new_chat": "New Chat",
     "no_conversations": "No conversations",
     "welcome": "Evatar AI Assistant",
-    "welcome_desc": "I can search your screenshot knowledge base or search the internet. Try asking me:",
+    "welcome_desc": "Search screenshots, search the internet, upload images for analysis",
+    "skills": "Skills",
+    "skill_label": "Skill",
+    "skill_placeholder": "Using \"{{name}}\"...",
     "placeholder": "Type a message...",
-    "send": "Send"
+    "send": "Send",
+    "send_failed": "Send failed",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "cancel_skill": "Cancel skill",
+    "unknown_error": "Unknown error",
+    "load_error": "Failed to load"
   },
   "presets": {
     "mimo": "Xiaomi MiMo",

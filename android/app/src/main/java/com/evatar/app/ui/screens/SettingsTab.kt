@@ -22,7 +22,7 @@ import com.evatar.app.network.ApiClient
 @Composable
 fun SettingsTab(modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val apiClient = remember { ApiClient(context) }
+    val apiClient = remember { ApiClient.getInstance(context) }
     var serverUrl by remember { mutableStateOf(apiClient.getServerUrl()) }
     var urlField by remember { mutableStateOf(serverUrl) }
 

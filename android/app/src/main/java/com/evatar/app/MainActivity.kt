@@ -19,7 +19,13 @@ class MainActivity : ComponentActivity() {
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { /* no-op */ }
+    ) { permissions ->
+        val denied = permissions.filter { !it.value }.keys
+        if (denied.isNotEmpty()) {
+            android.util.Log.w("MainActivity", "Denied permissions: $denied")
+            // App will still work with reduced functionality
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

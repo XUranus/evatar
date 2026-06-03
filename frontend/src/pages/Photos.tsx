@@ -28,7 +28,7 @@ export default function Photos() {
         setPhotos(r.data.items);
         setTotal(r.data.total);
       })
-      .catch(() => {})
+      .catch(() => { setPhotos([]); setTotal(0); })
       .finally(() => setLoading(false));
   };
 

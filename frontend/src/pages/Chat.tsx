@@ -57,7 +57,7 @@ export default function ChatPage() {
       setActiveSkill(null);
       getConversations().then(r => setConversations(r.data.conversations));
     } catch (err: unknown) {
-      let detail = '未知错误';
+      let detail = t('chat.unknown_error', 'Unknown error');
       if (axios.isAxiosError(err)) {
         const status = err.response?.status;
         const body = err.response?.data?.detail || err.message;
@@ -67,7 +67,7 @@ export default function ChatPage() {
       }
       setLastError(detail);
       setLastFailedInput(text);
-      setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: `❌ 发送失败\n${detail}`, created_at: new Date().toISOString() }]);
+      setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: `❌ ${t('chat.send_failed', 'Send failed')}\n${detail}`, created_at: new Date().toISOString() }]);
     } finally {
       setSending(false);
     }
@@ -123,9 +123,9 @@ export default function ChatPage() {
         <div className="flex items-center px-4 py-2 border-b border-gray-200 dark:border-gray-800">
           <button onClick={() => setShowSidebar(!showSidebar)} className="mr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">☰</button>
           <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex-1">
-            {activeSkill ? `${activeSkill.icon} ${activeSkill.name}` : activeConvId ? conversations.find(c => c.id === activeConvId)?.title || 'AI 助手' : '新对话'}
+            {activeSkill ? `${activeSkill.icon} ${activeSkill.name}` : activeConvId ? conversations.find(c => c.id === activeConvId)?.title || t('chat.title', 'AI Assistant') : t('chat.new_chat', 'New Chat')}
           </h2>
-          {activeSkill && <button onClick={() => setActiveSkill(null)} className="text-xs text-gray-400 hover:text-gray-600">✕ 取消技能</button>}
+          {activeSkill && <button onClick={() => setActiveSkill(null)} className="text-xs text-gray-400 hover:text-gray-600">✕ {t('chat.cancel_skill', 'Cancel skill')}</button>}
         </div>
 
         {/* Messages */}
@@ -133,11 +133,11 @@ export default function ChatPage() {
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-gray-400">
               <div className="text-4xl mb-4">🤖</div>
-              <div className="text-lg font-medium dark:text-gray-300">Evatar AI 助手</div>
-              <div className="text-sm mt-2 text-center max-w-md">搜索截图知识库、搜索互联网、上传图片分析</div>
+              <div className="text-lg font-medium dark:text-gray-300">{t('chat.welcome', 'Evatar AI Assistant')}</div>
+              <div className="text-sm mt-2 text-center max-w-md">{t('chat.welcome_desc', 'Search screenshots, search internet, upload images')}</div>
               {skills.length > 0 && (
                 <div className="mt-6 w-full max-w-lg">
-                  <div className="text-xs text-gray-400 mb-2 text-left">⚡ 技能</div>
+                  <div className="text-xs text-gray-400 mb-2 text-left">⚡ {t('chat.skills', 'Skills')}</div>
                   <div className="grid grid-cols-2 gap-2">
                     {skills.map(skill => (
                       <button key={skill.id} onClick={() => setActiveSkill(skill)}
@@ -171,9 +171,9 @@ export default function ChatPage() {
         {/* Retry bar */}
         {lastFailedInput && !sending && (
           <div className="mx-4 mb-2 px-3 py-2 bg-red-50 dark:bg-red-900/30 rounded-lg flex items-center text-sm">
-            <span className="text-red-600 dark:text-red-400 flex-1">发送失败</span>
-            <button onClick={handleRetry} className="px-3 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600">重试</button>
-            <button onClick={() => { setLastFailedInput(null); setLastError(null); }} className="ml-2 px-3 py-1 text-gray-500 text-xs">取消</button>
+            <span className="text-red-600 dark:text-red-400 flex-1">{t('chat.send_failed', 'Send failed')}</span>
+            <button onClick={handleRetry} className="px-3 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600">{t('chat.retry', 'Retry')}</button>
+            <button onClick={() => { setLastFailedInput(null); setLastError(null); }} className="ml-2 px-3 py-1 text-gray-500 text-xs">{t('chat.cancel', 'Cancel')}</button>
           </div>
         )}
 
@@ -189,7 +189,7 @@ export default function ChatPage() {
         <div className="border-t border-gray-200 dark:border-gray-800 p-4">
           {activeSkill && (
             <div className="mb-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 rounded-lg text-xs text-blue-600 dark:text-blue-400 inline-block">
-              {activeSkill.icon} 技能: {activeSkill.name}
+              {activeSkill.icon} {t('chat.skill_label', 'Skill')}: {activeSkill.name}
             </div>
           )}
           <div className="flex gap-2">
@@ -198,13 +198,13 @@ export default function ChatPage() {
               className="px-2 py-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" title="上传附件">📎</button>
             <textarea value={input} onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-              placeholder={activeSkill ? `使用「${activeSkill.name}」技能...` : '输入消息...'}
+              placeholder={activeSkill ? t('chat.skill_placeholder', { name: activeSkill.name, defaultValue: `Using "${activeSkill.name}"...` }) : t('chat.placeholder', 'Type a message...')}
               rows={1}
               className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-xl resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
             />
             <button onClick={handleSend} disabled={(!input.trim() && !attachedFile) || sending}
               className="px-4 py-2 bg-blue-500 text-white rounded-xl hover:bg-blue-600 disabled:opacity-40 text-sm">
-              发送
+              {t('chat.send', 'Send')}
             </button>
           </div>
         </div>

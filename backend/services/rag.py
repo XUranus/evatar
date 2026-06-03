@@ -1,6 +1,6 @@
 """RAG service: search over screenshot analyses using FTS5 and keyword matching."""
 
-import json
+import re
 import logging
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -9,40 +9,48 @@ from models import Analysis, Photo
 
 logger = logging.getLogger("evatar.rag")
 
+# Chars that could break FTS5 syntax
+_FTS_SPECIAL = re.compile(r'[^\w\s一-鿿]')
+
+
+def _sanitize_fts_query(query: str) -> str:
+    """Remove FTS5 special characters from query tokens."""
+    tokens = query.split()
+    clean = []
+    for t in tokens[:10]:
+        t = _FTS_SPECIAL.sub("", t)
+        if t:
+            clean.append(t)
+    return " OR ".join(clean)
+
 
 def search_screenshots(db: Session, query: str, limit: int = 10) -> list[dict]:
-    """Search screenshot analyses by keyword. Returns relevant results."""
+    """Search screenshot analyses by keyword."""
     if not query.strip():
         return []
 
-    # Strategy 1: FTS5 on summary (if available)
     results = _fts_search(db, query, limit)
     if results:
         return results
-
-    # Strategy 2: LIKE-based keyword search
     return _keyword_search(db, query, limit)
 
 
 def _fts_search(db: Session, query: str, limit: int) -> list[dict]:
-    """Try FTS5 search on the analysis_fts virtual table."""
     try:
-        # Check if FTS table exists
         check = db.execute(
             text("SELECT name FROM sqlite_master WHERE type='table' AND name='analysis_fts'")
         ).fetchone()
         if not check:
             _build_fts_index(db)
 
-        # Tokenize query for FTS5
-        tokens = query.replace("'", " ").replace('"', ' ').split()
-        fts_query = " OR ".join(tokens)
+        fts_query = _sanitize_fts_query(query)
+        if not fts_query:
+            return []
 
         rows = db.execute(
             text("""
                 SELECT a.id, a.summary, a.app_name, a.content_category, a.intent,
-                       a.entities, p.filename, p.original_timestamp,
-                       rank
+                       a.entities, p.filename, p.original_timestamp
                 FROM analysis_fts
                 JOIN analyses a ON a.id = analysis_fts.rowid
                 JOIN photos p ON p.id = a.photo_id
@@ -60,14 +68,12 @@ def _fts_search(db: Session, query: str, limit: int) -> list[dict]:
 
 
 def _build_fts_index(db: Session):
-    """Build FTS5 virtual table for full-text search on analyses."""
     try:
         db.execute(text("DROP TABLE IF EXISTS analysis_fts"))
         db.execute(text("""
             CREATE VIRTUAL TABLE analysis_fts USING fts5(
                 summary, app_name, content_category, intent, entities,
-                content='analyses',
-                content_rowid='id'
+                content='analyses', content_rowid='id'
             )
         """))
         db.execute(text("""
@@ -82,17 +88,16 @@ def _build_fts_index(db: Session):
 
 
 def _keyword_search(db: Session, query: str, limit: int) -> list[dict]:
-    """LIKE-based keyword search as fallback."""
-    keywords = query.split()
+    keywords = query.split()[:5]
     if not keywords:
         return []
 
     conditions = []
     params = {}
-    for i, kw in enumerate(keywords[:5]):
+    for i, kw in enumerate(keywords):
         key = f"kw{i}"
         conditions.append(
-            f"(a.summary LIKE :{key} OR a.app_name LIKE :{key} OR a.entities LIKE :{key} OR a.content_category LIKE :{key})"
+            f"(a.summary LIKE :{key} OR a.app_name LIKE :{key} OR a.entities LIKE :{key})"
         )
         params[key] = f"%{kw}%"
 
@@ -125,27 +130,3 @@ def _row_to_result(row) -> dict:
         "filename": row[6] or "",
         "timestamp": row[7].isoformat() if row[7] else None,
     }
-
-
-def get_recent_analyses(db: Session, limit: int = 20) -> list[dict]:
-    """Get recent analyses for context."""
-    rows = (
-        db.query(Analysis, Photo)
-        .join(Photo, Analysis.photo_id == Photo.id)
-        .filter(Analysis.status == "done")
-        .order_by(Photo.original_timestamp.desc())
-        .limit(limit)
-        .all()
-    )
-    results = []
-    for a, p in rows:
-        results.append({
-            "summary": a.summary or "",
-            "app_name": a.app_name or "",
-            "content_category": a.content_category or "",
-            "intent": a.intent or "",
-            "entities": a.entities or "[]",
-            "filename": p.filename or "",
-            "timestamp": p.original_timestamp.isoformat() if p.original_timestamp else None,
-        })
-    return results

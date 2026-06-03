@@ -1,5 +1,6 @@
 import uuid
 import io
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -7,11 +8,14 @@ from PIL import Image
 
 from config import settings
 
+logger = logging.getLogger("evatar.storage")
+
 
 def save_photo(file_bytes: bytes, original_filename: str) -> tuple[str, str, int, int, int]:
     """Save original photo and generate thumbnail.
 
     Returns: (original_path, thumbnail_path, file_size, width, height)
+    Raises: OSError on disk write failure.
     """
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     day_dir = settings.photos_dir / today
@@ -22,10 +26,14 @@ def save_photo(file_bytes: bytes, original_filename: str) -> tuple[str, str, int
     save_name = f"{uid}{ext}"
     original_path = str(day_dir / save_name)
 
+    # Validate path stays within photos_dir
+    resolved = Path(original_path).resolve()
+    if not str(resolved).startswith(str(settings.photos_dir.resolve())):
+        raise ValueError("Path traversal detected")
+
     with open(original_path, "wb") as f:
         f.write(file_bytes)
 
-    # Get image dimensions and generate thumbnail
     img = Image.open(io.BytesIO(file_bytes))
     width, height = img.size
     file_size = len(file_bytes)
@@ -38,7 +46,6 @@ def save_photo(file_bytes: bytes, original_filename: str) -> tuple[str, str, int
 
 
 def _make_thumbnail(img: Image.Image, save_path: str, max_size: int = 512):
-    """Generate a JPEG thumbnail, fitting within max_size x max_size."""
     img_copy = img.copy()
     img_copy.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
     if img_copy.mode in ("RGBA", "P"):
