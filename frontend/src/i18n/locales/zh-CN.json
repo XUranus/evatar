@@ -1,0 +1,105 @@
+{
+  "app": {
+    "name": "Evatar",
+    "subtitle": "截图同步 & AI 分析"
+  },
+  "nav": {
+    "dashboard": "仪表盘",
+    "photos": "照片",
+    "settings": "设置",
+    "llm_config": "LLM 配置",
+    "chat": "AI 助手"
+  },
+  "dashboard": {
+    "title": "仪表盘",
+    "total_photos": "总照片数",
+    "analyzed": "已分析",
+    "pending": "待处理",
+    "processing": "分析中",
+    "errors": "错误",
+    "intent_distribution": "意图分布",
+    "category_distribution": "内容分类分布",
+    "no_data": "暂无数据"
+  },
+  "photos": {
+    "title": "照片列表",
+    "all": "全部",
+    "pending": "待处理",
+    "processing": "分析中",
+    "done": "已分析",
+    "error": "错误",
+    "empty": "暂无照片，等待手机同步...",
+    "loading": "加载中...",
+    "prev_page": "上一页",
+    "next_page": "下一页",
+    "confirm_delete": "确定删除？",
+    "reprocess": "重新分析",
+    "delete": "删除",
+    "close": "关闭",
+    "no_analysis": "暂无分析结果",
+    "status": "状态",
+    "app": "应用",
+    "category": "分类",
+    "intent": "意图",
+    "confidence": "置信度",
+    "process_time": "处理时间",
+    "summary": "摘要",
+    "entities": "提取的实体",
+    "error_msg": "错误信息"
+  },
+  "intents": {
+    "reminder": "提醒",
+    "research": "研究",
+    "reference": "参考",
+    "note": "笔记",
+    "ignore": "忽略"
+  },
+  "categories": {
+    "chat": "聊天",
+    "webpage": "网页",
+    "notification": "通知",
+    "social_media": "社交媒体",
+    "finance": "金融",
+    "education": "教育",
+    "shopping": "购物",
+    "entertainment": "娱乐",
+    "tool": "工具",
+    "other": "其他"
+  },
+  "settings": {
+    "title": "LLM 配置",
+    "provider": "服务商",
+    "base_url": "API 地址",
+    "api_key": "API Key",
+    "model": "模型名称",
+    "max_context": "最大上下文 tokens",
+    "temperature": "温度",
+    "save": "保存配置",
+    "saved": "配置已保存",
+    "presets": "快速选择",
+    "apply": "应用",
+    "api_key_placeholder": "输入 API Key",
+    "custom": "自定义",
+    "current_config": "当前配置",
+    "api_key_set": "已设置",
+    "api_key_not_set": "未设置"
+  },
+  "chat": {
+    "title": "AI 助手",
+    "new_chat": "新对话",
+    "no_conversations": "暂无对话",
+    "welcome": "Evatar AI 助手",
+    "welcome_desc": "我可以搜索你的截图知识库，也可以帮你搜索互联网。试试问我：",
+    "placeholder": "输入消息...",
+    "send": "发送"
+  },
+  "presets": {
+    "mimo": "小米 MiMo",
+    "qwen": "通义千问 (DashScope)",
+    "openai": "OpenAI ChatGPT",
+    "claude": "Anthropic Claude",
+    "glm": "智谱 GLM",
+    "kimi": "月之暗面 Kimi",
+    "deepseek": "DeepSeek"
+  }
+}

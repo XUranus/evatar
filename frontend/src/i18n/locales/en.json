@@ -1,0 +1,105 @@
+{
+  "app": {
+    "name": "Evatar",
+    "subtitle": "Screenshot Sync & AI Analysis"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "photos": "Photos",
+    "settings": "Settings",
+    "llm_config": "LLM Config",
+    "chat": "AI Chat"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "total_photos": "Total Photos",
+    "analyzed": "Analyzed",
+    "pending": "Pending",
+    "processing": "Processing",
+    "errors": "Errors",
+    "intent_distribution": "Intent Distribution",
+    "category_distribution": "Category Distribution",
+    "no_data": "No data yet"
+  },
+  "photos": {
+    "title": "Photos",
+    "all": "All",
+    "pending": "Pending",
+    "processing": "Processing",
+    "done": "Done",
+    "error": "Error",
+    "empty": "No photos yet, waiting for phone sync...",
+    "loading": "Loading...",
+    "prev_page": "Previous",
+    "next_page": "Next",
+    "confirm_delete": "Are you sure?",
+    "reprocess": "Re-analyze",
+    "delete": "Delete",
+    "close": "Close",
+    "no_analysis": "No analysis yet",
+    "status": "Status",
+    "app": "App",
+    "category": "Category",
+    "intent": "Intent",
+    "confidence": "Confidence",
+    "process_time": "Processed At",
+    "summary": "Summary",
+    "entities": "Extracted Entities",
+    "error_msg": "Error"
+  },
+  "intents": {
+    "reminder": "Reminder",
+    "research": "Research",
+    "reference": "Reference",
+    "note": "Note",
+    "ignore": "Ignore"
+  },
+  "categories": {
+    "chat": "Chat",
+    "webpage": "Webpage",
+    "notification": "Notification",
+    "social_media": "Social Media",
+    "finance": "Finance",
+    "education": "Education",
+    "shopping": "Shopping",
+    "entertainment": "Entertainment",
+    "tool": "Tool",
+    "other": "Other"
+  },
+  "settings": {
+    "title": "LLM Configuration",
+    "provider": "Provider",
+    "base_url": "API Base URL",
+    "api_key": "API Key",
+    "model": "Model Name",
+    "max_context": "Max Context Tokens",
+    "temperature": "Temperature",
+    "save": "Save Config",
+    "saved": "Config saved",
+    "presets": "Quick Select",
+    "apply": "Apply",
+    "api_key_placeholder": "Enter API Key",
+    "custom": "Custom",
+    "current_config": "Current Config",
+    "api_key_set": "Set",
+    "api_key_not_set": "Not set"
+  },
+  "chat": {
+    "title": "AI Assistant",
+    "new_chat": "New Chat",
+    "no_conversations": "No conversations",
+    "welcome": "Evatar AI Assistant",
+    "welcome_desc": "I can search your screenshot knowledge base or search the internet. Try asking me:",
+    "placeholder": "Type a message...",
+    "send": "Send"
+  },
+  "presets": {
+    "mimo": "Xiaomi MiMo",
+    "qwen": "Qwen (DashScope)",
+    "openai": "OpenAI ChatGPT",
+    "claude": "Anthropic Claude",
+    "glm": "Zhipu GLM",
+    "kimi": "Moonshot Kimi",
+    "deepseek": "DeepSeek"
+  }
+}

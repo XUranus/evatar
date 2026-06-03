@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Evatar</string>
+    <string name="action_settings">设置</string>
+    <string name="action_refresh">刷新</string>
+    <string name="server_connected">服务端已连接</string>
+    <string name="server_disconnected">服务端未连接</string>
+    <string name="sync_stats">同步统计</string>
+    <string name="stat_total">总计</string>
+    <string name="stat_synced">已同步</string>
+    <string name="stat_pending">待上传</string>
+    <string name="stat_errors">错误</string>
+    <string name="btn_start_sync">开始同步</string>
+    <string name="btn_stop_sync">停止同步</string>
+    <string name="btn_start_keepalive">悬浮窗保活</string>
+    <string name="btn_stop_keepalive">停止保活</string>
+    <string name="hint_connect_server">请先连接服务端后再开始同步</string>
+    <string name="recent_records">最近记录</string>
+    <string name="no_records">暂无记录，连接服务端后点击【开始同步】</string>
+    <string name="status_synced">已同步</string>
+    <string name="status_uploading">上传中</string>
+    <string name="status_error">失败</string>
+    <string name="status_pending">待上传</string>
+    <string name="setting_server_url">服务端地址</string>
+    <string name="setting_battery">电池优化</string>
+    <string name="setting_battery_desc">为确保后台同步稳定运行，建议将 Evatar 从电池优化中移除。</string>
+    <string name="setting_battery_btn">打开电池优化设置</string>
+    <string name="setting_overlay">悬浮窗权限</string>
+    <string name="setting_overlay_desc">悬浮窗保活功能需要悬浮窗权限。</string>
+    <string name="setting_overlay_btn">打开悬浮窗设置</string>
+    <string name="setting_about">关于</string>
+    <string name="setting_save">保存</string>
+    <string name="setting_back">返回</string>
+    <string name="settings_title">设置</string>
+    <string name="notification_sync_channel">相册同步</string>
+    <string name="notification_keepalive_channel">后台保活</string>
+    <string name="notification_sync_title">Evatar 同步</string>
+    <string name="notification_keepalive_title">Evatar 保活</string>
+</resources>
