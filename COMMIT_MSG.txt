@@ -1,0 +1,26 @@
+fix: 17 review issues — security, bugs, error handling, performance
+
+Security (High):
+- S2: Startup warning when API key not set
+- S3: SSRF protection for LLM base_url
+
+Bugs (High):
+- B1: Batch upload per-file error handling
+- B2: Track fire-and-forget memory tasks
+- B5: FTS rebuild uses separate session
+
+Medium:
+- B3: Single commit per agent round
+- B4: Log WAL errors
+- B7: Clear plaintext when encryption enabled
+- S4: Use display_content in chat API
+- S5: MIME type validation
+- S6: File extension validation
+- E1: Pipeline commit/rollback fix
+- E2: Don't retry programming errors
+- E3: Log LLM HTTP error body
+- E5: File delete failure isolation
+- P2: Resize images before base64
+- P4: _build_history uses LIMIT query
+
+30 tests pass.
