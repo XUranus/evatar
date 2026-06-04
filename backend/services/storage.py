@@ -10,6 +10,8 @@ from config import settings
 
 logger = logging.getLogger("evatar.storage")
 
+ALLOWED_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+
 
 def save_photo(file_bytes: bytes, original_filename: str) -> tuple[str, str, int, int, int]:
     """Save original photo and generate thumbnail.
@@ -23,6 +25,8 @@ def save_photo(file_bytes: bytes, original_filename: str) -> tuple[str, str, int
 
     uid = uuid.uuid4().hex[:12]
     ext = Path(original_filename).suffix or ".jpg"
+    if ext.lower() not in ALLOWED_EXTS:
+        ext = ".jpg"
     save_name = f"{uid}{ext}"
     original_path = str(day_dir / save_name)
 

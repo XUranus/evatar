@@ -5,7 +5,7 @@ import logging
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from models import Analysis, Photo
+from models import Analysis, Photo, SessionLocal
 
 logger = logging.getLogger("evatar.rag")
 
@@ -74,23 +74,28 @@ def _fts_search(db: Session, query: str, limit: int) -> list[dict]:
 
 
 def _build_fts_index(db: Session):
+    # Use a separate session to avoid flushing the caller's pending changes
+    rebuild_db = SessionLocal()
     try:
-        db.execute(text("DROP TABLE IF EXISTS analysis_fts"))
-        db.execute(text("""
+        rebuild_db.execute(text("DROP TABLE IF EXISTS analysis_fts"))
+        rebuild_db.execute(text("""
             CREATE VIRTUAL TABLE analysis_fts USING fts5(
                 summary, app_name, content_category, intent, entities,
                 content='analyses', content_rowid='id'
             )
         """))
-        db.execute(text("""
+        rebuild_db.execute(text("""
             INSERT INTO analysis_fts(rowid, summary, app_name, content_category, intent, entities)
             SELECT id, summary, app_name, content_category, intent, entities
             FROM analyses WHERE status = 'done'
         """))
-        db.commit()
+        rebuild_db.commit()
         logger.info("FTS5 index built")
     except Exception as e:
+        rebuild_db.rollback()
         logger.warning(f"Failed to build FTS index: {e}")
+    finally:
+        rebuild_db.close()
 
 
 def _keyword_search(db: Session, query: str, limit: int) -> list[dict]:

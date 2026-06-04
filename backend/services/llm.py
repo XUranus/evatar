@@ -102,7 +102,11 @@ async def call_llm(
                 "Content-Type": "application/json",
             },
         )
-        resp.raise_for_status()
+        try:
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            logger.error(f"LLM API error: {e.response.status_code} - {e.response.text[:500]}")
+            raise
         data = resp.json()
 
     message = data["choices"][0]["message"]
@@ -124,11 +128,25 @@ async def call_llm(
 
 
 def encode_image_base64(image_path: str) -> tuple[str, str]:
-    """Read image file and return (base64_data, mime_type)."""
-    with open(image_path, "rb") as f:
-        b64 = base64.b64encode(f.read()).decode("utf-8")
+    """Read image file and return (base64_data, mime_type).
+    Resizes images larger than 2048px to fit within 2048x2048."""
+    from PIL import Image
+    import io
 
     ext = image_path.lower().rsplit(".", 1)[-1] if "." in image_path else "jpg"
     mime_map = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
                 "webp": "image/webp", "gif": "image/gif"}
-    return b64, mime_map.get(ext, "image/jpeg")
+    mime = mime_map.get(ext, "image/jpeg")
+
+    img = Image.open(image_path)
+    if img.width > 2048 or img.height > 2048:
+        img.thumbnail((2048, 2048), Image.Resampling.LANCZOS)
+        buf = io.BytesIO()
+        save_fmt = "PNG" if ext == "png" else "JPEG"
+        img.save(buf, format=save_fmt, quality=85)
+        b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+    else:
+        with open(image_path, "rb") as f:
+            b64 = base64.b64encode(f.read()).decode("utf-8")
+
+    return b64, mime

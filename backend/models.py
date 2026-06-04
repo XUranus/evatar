@@ -6,7 +6,11 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, Session, relationship, sessionmaker
 
+import logging
+
 from config import settings
+
+logger = logging.getLogger("evatar.db")
 
 
 class Base(DeclarativeBase):
@@ -248,8 +252,8 @@ def _enable_wal():
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA busy_timeout=5000")
         conn.close()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"Failed to enable WAL: {e}")
 
 
 def init_db():

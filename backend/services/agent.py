@@ -14,6 +14,9 @@ from services.search import web_search
 
 logger = logging.getLogger("evatar.agent")
 
+# Track background memory extraction tasks to prevent fire-and-forget
+_memory_tasks: set[asyncio.Task] = set()
+
 SYSTEM_PROMPT = """你是 Evatar，一个智能个人助手。你拥有用户的手机截图知识库，包含用户截图的分析结果（聊天记录、网页、通知、金融信息等）。
 
 ## 工具使用策略
@@ -124,7 +127,7 @@ async def chat(
 
     user_msg = ChatMessage(conversation_id=conversation_id, role="user", content=user_message)
     db.add(user_msg)
-    db.commit()
+    db.flush()
 
     history = _build_history(db, conversation_id)
 
@@ -169,7 +172,6 @@ async def chat(
             tool_calls=json.dumps(tool_calls, ensure_ascii=False) if tool_calls else None,
         )
         db.add(assistant_msg)
-        db.commit()
 
         if not tool_calls:
             if conv.title == "新对话" and user_message:
@@ -179,7 +181,9 @@ async def chat(
             # Extract memories from this conversation turn (async, with own session)
             turn_text = f"用户: {user_message}\n助手: {assistant_content[:500]}"
             device = conv.device_id or ""
-            asyncio.create_task(_extract_memories_async(turn_text, conversation_id, device))
+            task = asyncio.create_task(_extract_memories_async(turn_text, conversation_id, device))
+            _memory_tasks.add(task)
+            task.add_done_callback(_memory_tasks.discard)
 
             return {"role": "assistant", "content": assistant_content, "tool_calls": []}
 
@@ -238,12 +242,15 @@ async def _execute_tool(name: str, args: dict, db: Session) -> dict:
 
 
 def _build_history(db: Session, conversation_id: str) -> list[dict]:
+    limit = settings.agent_history_limit
     messages = (
         db.query(ChatMessage)
         .filter(ChatMessage.conversation_id == conversation_id)
-        .order_by(ChatMessage.created_at)
+        .order_by(ChatMessage.created_at.desc())
+        .limit(limit)
         .all()
     )
+    messages.reverse()  # Restore chronological order
 
     history = []
     for msg in messages:
@@ -254,7 +261,7 @@ def _build_history(db: Session, conversation_id: str) -> list[dict]:
             entry["tool_call_id"] = msg.tool_call_id
         history.append(entry)
 
-    return history[-settings.agent_history_limit:]
+    return history
 
 
 async def _extract_memories_async(text: str, conversation_id: str, device_id: str):

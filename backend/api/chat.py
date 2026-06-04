@@ -94,6 +94,7 @@ async def list_conversations(
         select(
             ChatMessage.conversation_id,
             ChatMessage.content,
+            ChatMessage.encrypted_content,
             func.row_number().over(
                 partition_by=ChatMessage.conversation_id,
                 order_by=desc(ChatMessage.created_at),
@@ -108,6 +109,7 @@ async def list_conversations(
             Conversation,
             func.coalesce(msg_count_sq.c.cnt, 0).label("message_count"),
             func.coalesce(last_msg_sq.c.content, "").label("last_message"),
+            last_msg_sq.c.encrypted_content.label("last_message_encrypted"),
         )
         .outerjoin(msg_count_sq, msg_count_sq.c.conversation_id == Conversation.id)
         .outerjoin(
@@ -123,13 +125,17 @@ async def list_conversations(
     rows = query.offset((page - 1) * page_size).limit(page_size).all()
 
     items = []
-    for c, message_count, last_message in rows:
+    for c, message_count, last_message, last_message_encrypted in rows:
+        preview = last_message or ""
+        if last_message_encrypted:
+            from services.encryption import decrypt_field
+            preview = decrypt_field(last_message_encrypted) or preview
         items.append({
             "id": c.id, "title": c.title, "device_id": c.device_id,
             "created_at": c.created_at.isoformat() if c.created_at else None,
             "updated_at": c.updated_at.isoformat() if c.updated_at else None,
             "message_count": message_count,
-            "last_message": (last_message or "")[:100],
+            "last_message": preview[:100],
         })
 
     return {"conversations": items}
@@ -146,7 +152,7 @@ async def get_conversation(conversation_id: str, db: Session = Depends(get_db)):
     messages = []
     for m in conv.messages:
         msg = {
-            "id": m.id, "role": m.role, "content": m.content,
+            "id": m.id, "role": m.role, "content": m.display_content,
             "created_at": m.created_at.isoformat() if m.created_at else None,
         }
         if m.tool_calls:

@@ -82,6 +82,7 @@ async def extract_memories_from_text(
             enc_content = None
             if is_encryption_enabled():
                 enc_content = encrypt_field(mem_content)
+                mem_content = f"[encrypted:{content_hash}]"
 
             memory = Memory(
                 content=mem_content,
@@ -98,7 +99,7 @@ async def extract_memories_from_text(
                 expires_at=expires,
             )
             db.add(memory)
-            saved.append({"content": memory.content, "category": memory.category})
+            saved.append({"content": entry["content"], "category": memory.category})
 
         db.commit()
         logger.info(f"Extracted {len(saved)} memories from {source_type} {source_id}")

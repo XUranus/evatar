@@ -97,11 +97,18 @@ async def process_photo(photo_id: int):
     except Exception as e:
         logger.error(f"Failed to analyze photo {photo_id}: {e}", exc_info=True)
         if analysis:
-            analysis.status = AnalysisStatus.ERROR
-            analysis.error_message = str(e)[:500]
-            analysis.completed_at = datetime.now(timezone.utc)
-    finally:
+            try:
+                analysis.status = AnalysisStatus.ERROR
+                analysis.error_message = str(e)[:500]
+                analysis.completed_at = datetime.now(timezone.utc)
+                db.commit()
+            except Exception:
+                db.rollback()
+        else:
+            db.rollback()
+    else:
         db.commit()
+    finally:
         db.close()
 
 
@@ -137,7 +144,7 @@ async def _trigger_reasoning():
         logger.warning(f"Auto-reasoning failed: {e}")
 
 
-_UNRECOVERABLE = (FileNotFoundError, PermissionError, ValueError)
+_UNRECOVERABLE = (FileNotFoundError, PermissionError, ValueError, KeyError, TypeError, AttributeError, IndexError)
 
 
 async def _safe_process(photo_id: int):

@@ -1,9 +1,15 @@
+import re
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from models import get_db, LLMConfig
+
+_PRIVATE_HOST = re.compile(
+    r'(localhost|127\.0\.0\.1|0\.0\.0\.0|169\.254\.\d+\.\d+|'
+    r'10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)'
+)
 
 router = APIRouter(prefix="/api/config", tags=["config"])
 
@@ -50,8 +56,18 @@ def get_llm_config(db: Session = Depends(get_db)):
     }
 
 
+def _validate_base_url(url: str):
+    """Reject SSRF-prone URLs."""
+    if not url.startswith("https://"):
+        raise HTTPException(status_code=400, detail="base_url must use https://")
+    if _PRIVATE_HOST.search(url):
+        raise HTTPException(status_code=400, detail="base_url must not point to a private/localhost address")
+
+
 @router.put("/llm")
 def update_llm_config(body: LLMConfigUpdate, db: Session = Depends(get_db)):
+    if body.base_url is not None:
+        _validate_base_url(body.base_url)
     cfg = _get_or_create(db)
     for field, value in body.model_dump(exclude_none=True).items():
         setattr(cfg, field, value)

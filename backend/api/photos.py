@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from fastapi import APIRouter, Depends, File, UploadFile, Form, HTTPException, Query
@@ -7,12 +8,16 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc, case
 import os
 
+logger = logging.getLogger("evatar.photos")
+
 from config import settings
 from models import get_db, Photo, Analysis, AnalysisStatus, DeviceSyncState
 from services.storage import save_photo
 from services.pipeline import enqueue_analysis
 
 router = APIRouter(prefix="/api/photos", tags=["photos"])
+
+ALLOWED_MIMES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 
 
 # ── Helpers ──
@@ -31,6 +36,9 @@ def _save_upload(
     """Shared logic for single and batch upload. Returns result dict."""
     if len(file_bytes) > settings.max_upload_bytes:
         raise HTTPException(status_code=413, detail=f"File too large (max {settings.max_upload_bytes // 1024 // 1024}MB)")
+
+    if mime_type not in ALLOWED_MIMES:
+        mime_type = "image/jpeg"
 
     # Dedup
     if local_media_store_id:
@@ -151,13 +159,16 @@ async def upload_batch(
             results.append({"filename": upload_file.filename, "error": "empty"})
             continue
 
-        result = _save_upload(
-            file_bytes, upload_file.filename or "unknown.jpg", device_id, device_name,
-            "screenshot", id_list[i] if i < len(id_list) else "",
-            ts_list[i] if i < len(ts_list) else "",
-            mime_list[i] if i < len(mime_list) else "image/jpeg", db,
-        )
-        results.append(result)
+        try:
+            result = _save_upload(
+                file_bytes, upload_file.filename or "unknown.jpg", device_id, device_name,
+                "screenshot", id_list[i] if i < len(id_list) else "",
+                ts_list[i] if i < len(ts_list) else "",
+                mime_list[i] if i < len(mime_list) else "image/jpeg", db,
+            )
+            results.append(result)
+        except Exception as e:
+            results.append({"filename": upload_file.filename, "error": str(e)})
 
     return {"uploaded": len(results), "results": results}
 
@@ -268,7 +279,10 @@ async def delete_photo(photo_id: int, db: Session = Depends(get_db)):
         if p and os.path.exists(p):
             resolved = Path(p).resolve()
             if str(resolved).startswith(str(settings.photos_dir.resolve())):
-                os.remove(resolved)
+                try:
+                    os.remove(resolved)
+                except OSError as e:
+                    logger.warning(f"Failed to delete file {resolved}: {e}")
 
     db.delete(photo)
     db.commit()

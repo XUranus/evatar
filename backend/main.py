@@ -25,6 +25,8 @@ logger = logging.getLogger("evatar")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting Evatar backend...")
+    if not settings.api_key:
+        logger.warning("⚠️  API key not set! All endpoints are unauthenticated. Set EVATAR_API_KEY for production.")
     init_db()
     logger.info(f"Database initialized at {settings.db_path}")
     logger.info(f"LLM: {settings.llm_base_url}, model: {settings.llm_model}")
