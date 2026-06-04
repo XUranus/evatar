@@ -15,29 +15,18 @@ from services.encryption import is_encryption_enabled, encrypt_field
 
 logger = logging.getLogger("evatar.memory")
 
-MEMORY_EXTRACT_PROMPT = """从以下内容中提取值得记住的信息。尽可能多提取，不要遗漏。返回JSON数组。
+MEMORY_EXTRACT_PROMPT = """Extract memories from the content below. Return ONLY a JSON array, no other text.
 
-每个记忆条目：
-{
-  "content": "记忆内容，简洁明确，包含关键细节（人名、时间、金额、地点）",
-  "category": "preference(偏好) / fact(事实) / schedule(日程) / interest(兴趣) / habit(习惯) / people(人物关系) / project(项目) / finance(财务)",
-  "memory_type": "short_term(48小时内有效) / long_term(长期保留)",
-  "importance": 0.0到1.0
-}
+Format:
+[{"content":"memory text","category":"fact|people|project|finance|schedule|preference|interest|habit","memory_type":"short_term|long_term","importance":0.5}]
 
-提取规则（尽量多提取）：
-- 人名、联系方式、公司名称 → long_term, category=people
-- 项目名称、招标信息、资质要求 → long_term, category=project
-- 金额、支付、捐赠 → long_term, category=finance
-- 日期、行程、截止时间 → long_term, category=schedule
-- 用户偏好、习惯 → long_term, category=preference
-- 当前讨论的话题 → short_term
-- 截图中的关键事实 → long_term, category=fact
-- 只有纯寒暄（你好/谢谢）才不提取
-
-返回空数组 [] 仅当内容完全无信息价值。
-
-只返回JSON数组。"""
+Rules:
+- Names/companies → long_term, people
+- Money/payments → long_term, finance
+- Dates/deadlines → long_term, schedule
+- Project info → long_term, project
+- Only return [] if truly no info
+- Return ONLY the JSON array, nothing else."""
 
 
 async def extract_memories_from_text(
@@ -55,6 +44,13 @@ async def extract_memories_from_text(
         ], temperature=0.2, max_tokens=2048)
 
         content = strip_code_fences(result["content"])
+
+        # Extract JSON array from response (handle reasoning models that prepend text)
+        import re
+        json_match = re.search(r'\[.*\]', content, re.DOTALL)
+        if json_match:
+            content = json_match.group(0)
+
         entries = json.loads(content)
         if not isinstance(entries, list):
             return []
