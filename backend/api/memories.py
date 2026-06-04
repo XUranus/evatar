@@ -1,8 +1,8 @@
 """Memories API: view and manage agent memories."""
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy import desc, func
 
 from models import get_db, Memory
 
@@ -56,7 +56,7 @@ def memory_stats(db: Session = Depends(get_db)):
     long_term = db.query(Memory).filter(Memory.memory_type == "long_term").count()
 
     categories = {}
-    for cat, count in db.query(Memory.category, Memory.id).group_by(Memory.category).all():
+    for cat, count in db.query(Memory.category, func.count(Memory.id)).group_by(Memory.category).all():
         categories[cat or "unknown"] = count
 
     return {
@@ -69,7 +69,6 @@ def memory_stats(db: Session = Depends(get_db)):
 def delete_memory(memory_id: int, db: Session = Depends(get_db)):
     memory = db.query(Memory).filter(Memory.id == memory_id).first()
     if not memory:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Memory not found")
     db.delete(memory)
     db.commit()

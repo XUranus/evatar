@@ -92,7 +92,8 @@ class Conversation(Base):
     title = Column(String(256), default="新对话")
     device_id = Column(String(256), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
+                        onupdate=lambda: datetime.now(timezone.utc))
 
     messages = relationship("ChatMessage", back_populates="conversation",
                             order_by="ChatMessage.created_at", cascade="all, delete-orphan")
@@ -158,6 +159,7 @@ class Memory(Base):
     """Agent memory: short-term (48h expiry) and long-term (persistent)."""
     __tablename__ = "memories"
     __table_args__ = (
+        UniqueConstraint("device_id", "content", name="uq_memory_device_content"),
         Index("ix_memories_device_type", "device_id", "memory_type"),
         Index("ix_memories_expires", "expires_at"),
     )
@@ -203,7 +205,20 @@ engine = create_engine(settings.db_url, echo=False, connect_args={"check_same_th
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
 
 
+def _enable_wal():
+    """Enable WAL mode for better concurrent read/write performance."""
+    import sqlite3
+    try:
+        conn = sqlite3.connect(settings.db_path)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=5000")
+        conn.close()
+    except Exception:
+        pass
+
+
 def init_db():
+    _enable_wal()
     Base.metadata.create_all(engine)
 
 

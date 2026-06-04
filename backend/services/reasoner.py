@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from models import Dynamic, Photo, Analysis, ChatMessage, Conversation, Memory, SessionLocal
 from services.llm import call_llm
 from services.memory import get_memories_as_context
+from services.utils import strip_code_fences
 
 logger = logging.getLogger("evatar.reasoner")
 
@@ -126,12 +127,7 @@ async def run_reasoning_cycle(device_id: str = None) -> list[dict]:
             {"role": "user", "content": full_context[:8000]},
         ], temperature=0.3, max_tokens=4096)
 
-        content = result["content"].strip()
-        if content.startswith("```"):
-            lines = content.split("\n")
-            lines = [l for l in lines if not l.strip().startswith("```")]
-            content = "\n".join(lines).strip()
-
+        content = strip_code_fences(result["content"])
         articles = json.loads(content)
         if not isinstance(articles, list):
             return []

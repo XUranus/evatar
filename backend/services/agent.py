@@ -122,15 +122,10 @@ async def chat(
                 conv.title = user_message[:50]
             db.commit()
 
-            # Extract memories from this conversation turn (async, non-blocking)
-            try:
-                from services.memory import extract_memories_from_text
-                turn_text = f"用户: {user_message}\n助手: {assistant_content[:500]}"
-                asyncio.create_task(
-                    extract_memories_from_text(turn_text, "chat", conversation_id, conv.device_id or "", db)
-                )
-            except Exception:
-                pass
+            # Extract memories from this conversation turn (async, with own session)
+            turn_text = f"用户: {user_message}\n助手: {assistant_content[:500]}"
+            device = conv.device_id or ""
+            asyncio.create_task(_extract_memories_async(turn_text, conversation_id, device))
 
             return {"role": "assistant", "content": assistant_content, "tool_calls": []}
 
@@ -190,3 +185,16 @@ def _build_history(db: Session, conversation_id: str) -> list[dict]:
         history.append(entry)
 
     return history[-settings.agent_history_limit:]
+
+
+async def _extract_memories_async(text: str, conversation_id: str, device_id: str):
+    """Background task for memory extraction with its own DB session."""
+    from models import SessionLocal as _SessionLocal
+    from services.memory import extract_memories_from_text
+    db = _SessionLocal()
+    try:
+        await extract_memories_from_text(text, "chat", conversation_id, device_id, db)
+    except Exception as e:
+        logger.warning(f"Background memory extraction failed: {e}")
+    finally:
+        db.close()

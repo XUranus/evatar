@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from models import Memory
 from services.llm import call_llm
+from services.utils import strip_code_fences, clamp
 
 logger = logging.getLogger("evatar.memory")
 
@@ -46,12 +47,7 @@ async def extract_memories_from_text(
             {"role": "user", "content": text[:4000]},
         ], temperature=0.2, max_tokens=1024)
 
-        content = result["content"].strip()
-        if content.startswith("```"):
-            lines = content.split("\n")
-            lines = [l for l in lines if not l.strip().startswith("```")]
-            content = "\n".join(lines).strip()
-
+        content = strip_code_fences(result["content"])
         entries = json.loads(content)
         if not isinstance(entries, list):
             return []
@@ -75,13 +71,15 @@ async def extract_memories_from_text(
                 existing.last_accessed = now
                 continue
 
+            importance = clamp(entry.get("importance", 0.5))
+
             memory = Memory(
                 content=entry["content"],
                 memory_type=mem_type,
                 source_type=source_type,
                 source_id=source_id,
                 category=entry.get("category", "fact"),
-                importance=entry.get("importance", 0.5),
+                importance=importance,
                 device_id=device_id,
                 created_at=now,
                 last_accessed=now,

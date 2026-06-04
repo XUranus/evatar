@@ -35,7 +35,7 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    stop_scheduler()
+    await stop_scheduler()
     logger.info("Shutting down Evatar backend...")
 
 

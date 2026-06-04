@@ -94,5 +94,8 @@ def delete_dynamic(dynamic_id: int, db: Session = Depends(get_db)):
 @router.post("/trigger")
 async def trigger_reasoning(device_id: str = None):
     """Manually trigger a reasoning cycle."""
-    results = await trigger_reasoning_now(device_id)
-    return {"generated": len(results), "articles": results}
+    try:
+        results = await trigger_reasoning_now(device_id)
+        return {"generated": len(results), "articles": results}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Reasoning failed: {str(e)}")

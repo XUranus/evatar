@@ -41,12 +41,13 @@ async def _scheduler_loop():
 
         # Memory decay
         if (now - last_decay).total_seconds() >= MEMORY_DECAY_INTERVAL:
+            db = SessionLocal()
             try:
-                db = SessionLocal()
                 decay_memories(db)
-                db.close()
             except Exception as e:
                 logger.error(f"Memory decay failed: {e}", exc_info=True)
+            finally:
+                db.close()
             last_decay = now
 
         await asyncio.sleep(60)  # Check every minute
@@ -61,12 +62,16 @@ def start_scheduler():
     logger.info("Scheduler task created")
 
 
-def stop_scheduler():
-    """Stop the scheduler."""
+async def stop_scheduler():
+    """Stop the scheduler gracefully."""
     global _running, _task
     _running = False
     if _task:
         _task.cancel()
+        try:
+            await _task
+        except asyncio.CancelledError:
+            pass
         _task = None
     logger.info("Scheduler stopped")
 

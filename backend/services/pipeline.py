@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from models import Analysis, AnalysisStatus, Photo, SessionLocal
 from config import settings
+from services.utils import strip_code_fences
 
 logger = logging.getLogger("evatar.pipeline")
 
@@ -19,6 +20,7 @@ _running_tasks: set[asyncio.Task] = set()
 async def process_photo(photo_id: int):
     """Run LLM analysis on a photo."""
     db = SessionLocal()
+    analysis = None
     try:
         analysis = db.query(Analysis).filter(Analysis.photo_id == photo_id).first()
         if not analysis:
@@ -52,12 +54,7 @@ async def process_photo(photo_id: int):
         content = result["content"]
 
         # Parse JSON from response
-        content = content.strip()
-        if content.startswith("```"):
-            lines = content.split("\n")
-            lines = [l for l in lines if not l.strip().startswith("```")]
-            content = "\n".join(lines).strip()
-
+        content = strip_code_fences(content)
         try:
             parsed = json.loads(content)
         except json.JSONDecodeError:
@@ -104,11 +101,17 @@ def enqueue_analysis(photo_id: int):
     task.add_done_callback(_running_tasks.discard)
 
 
+_UNRECOVERABLE = (FileNotFoundError, PermissionError, ValueError)
+
+
 async def _safe_process(photo_id: int):
-    """Wrapper with retry logic."""
+    """Wrapper with retry logic. Skips unrecoverable errors."""
     for attempt in range(3):
         try:
             await process_photo(photo_id)
+            return
+        except _UNRECOVERABLE as e:
+            logger.error(f"Unrecoverable error for photo {photo_id}: {e}")
             return
         except Exception as e:
             if attempt < 2:
