@@ -68,7 +68,7 @@
     "other": "其他"
   },
   "settings": {
-    "title": "LLM 配置",
+    "title": "设置",
     "provider": "服务商",
     "base_url": "API 地址",
     "api_key": "API Key",
@@ -170,6 +170,10 @@
     "add": "添加",
     "pin": "置顶",
     "unpin": "取消置顶"
+  },
+  "error": {
+    "something_went_wrong": "出了点问题",
+    "try_again": "重试"
   },
   "presets": {
     "mimo": "小米 MiMo",

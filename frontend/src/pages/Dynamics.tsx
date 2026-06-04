@@ -137,7 +137,7 @@ export default function DynamicsPage() {
                 if (next && !item.is_read) markDynamicRead(item.id);
               }}
               onPin={() => toggleDynamicPin(item.id).then(load)}
-              onDelete={() => { if (confirm('确定删除？')) deleteDynamic(item.id).then(load); }}
+              onDelete={() => { if (confirm(t('dynamic.confirm_delete'))) deleteDynamic(item.id).then(load); }}
             />
           ))}
         </div>
@@ -189,10 +189,10 @@ function DynamicCard({ item, expanded, onToggle, onPin, onDelete }: {
             </div>
           </div>
           <div className="flex gap-1 flex-shrink-0">
-            <button onClick={e => { e.stopPropagation(); onPin(); }} className="p-1 text-gray-400 hover:text-blue-500" title="Pin">
+            <button onClick={e => { e.stopPropagation(); onPin(); }} className="p-1 text-gray-400 hover:text-blue-500" title={item.is_pinned ? t('common.unpin') : t('common.pin')}>
               {item.is_pinned ? <Pin size={12} /> : <PinOff size={12} />}
             </button>
-            <button onClick={e => { e.stopPropagation(); onDelete(); }} className="p-1 text-gray-400 hover:text-red-500" title="Delete">
+            <button onClick={e => { e.stopPropagation(); onDelete(); }} className="p-1 text-gray-400 hover:text-red-500" title={t('common.delete')}>
               <Trash2 size={14} />
             </button>
           </div>

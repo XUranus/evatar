@@ -68,7 +68,7 @@
     "other": "Other"
   },
   "settings": {
-    "title": "LLM Configuration",
+    "title": "Settings",
     "provider": "Provider",
     "base_url": "API Base URL",
     "api_key": "API Key",
@@ -170,6 +170,10 @@
     "add": "Add",
     "pin": "Pin",
     "unpin": "Unpin"
+  },
+  "error": {
+    "something_went_wrong": "Something went wrong",
+    "try_again": "Try again"
   },
   "presets": {
     "mimo": "Xiaomi MiMo",

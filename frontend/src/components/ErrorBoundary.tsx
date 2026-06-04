@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from 'react';
+import i18n from '../i18n';
 
 interface Props {
   children: ReactNode;
@@ -26,12 +27,12 @@ export default class ErrorBoundary extends Component<Props, State> {
       return this.props.fallback || (
         <div className="flex flex-col items-center justify-center h-64 text-gray-500 dark:text-gray-400">
           <div className="text-4xl mb-4">💥</div>
-          <div className="text-lg font-medium">Something went wrong</div>
+          <div className="text-lg font-medium">{i18n.t('error.something_went_wrong', 'Something went wrong')}</div>
           <div className="text-sm mt-2 max-w-md text-center">{this.state.error?.message}</div>
           <button
             onClick={() => this.setState({ hasError: false, error: null })}
             className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600"
-          >Try again</button>
+          >{i18n.t('error.try_again', 'Try again')}</button>
         </div>
       );
     }

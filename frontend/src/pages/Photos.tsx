@@ -6,10 +6,10 @@ import {
 } from '../api/client';
 
 const statusColors: Record<string, string> = {
-  done: 'bg-green-100 text-green-700',
-  pending: 'bg-yellow-100 text-yellow-700',
-  processing: 'bg-blue-100 text-blue-700',
-  error: 'bg-red-100 text-red-700',
+  done: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400',
+  pending: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400',
+  processing: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',
+  error: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400',
 };
 
 export default function Photos() {
@@ -47,14 +47,14 @@ export default function Photos() {
     deletePhoto(id).then(() => {
       setSelected(null);
       load(page, filter);
-    });
+    }).catch(() => {});
   };
 
   const handleReprocess = (id: number) => {
     reprocessPhoto(id).then(() => {
       load(page, filter);
       if (selected?.id === id) openDetail(id);
-    });
+    }).catch(() => {});
   };
 
   const totalPages = Math.ceil(total / 20);
@@ -63,7 +63,7 @@ export default function Photos() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-2xl font-bold text-gray-800">{t('photos.title')}</h1>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{t('photos.title')}</h1>
         <div className="flex gap-2">
           {filters.map(s => (
             <button
@@ -72,7 +72,7 @@ export default function Photos() {
               className={`px-3 py-1 rounded-full text-sm border transition-colors ${
                 filter === s
                   ? 'bg-blue-500 text-white border-blue-500'
-                  : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
+                  : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-700 hover:border-blue-400'
               }`}
             >
               {s ? t(`photos.${s}`) : t('photos.all')}
@@ -82,18 +82,18 @@ export default function Photos() {
       </div>
 
       {loading && photos.length === 0 ? (
-        <div className="text-center text-gray-400 py-12">{t('photos.loading')}</div>
+        <div className="text-center text-gray-400 dark:text-gray-500 py-12">{t('photos.loading')}</div>
       ) : photos.length === 0 ? (
-        <div className="text-center text-gray-400 py-12">{t('photos.empty')}</div>
+        <div className="text-center text-gray-400 dark:text-gray-500 py-12">{t('photos.empty')}</div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {photos.map(photo => (
             <div
               key={photo.id}
               onClick={() => openDetail(photo.id)}
-              className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+              className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
             >
-              <div className="aspect-square bg-gray-100 relative">
+              <div className="aspect-square bg-gray-100 dark:bg-gray-800 relative">
                 <img
                   src={getThumbnailUrl(photo.id)}
                   alt={photo.filename}
@@ -105,16 +105,16 @@ export default function Photos() {
                 </span>
               </div>
               <div className="p-2">
-                <div className="text-xs text-gray-500 truncate">{photo.filename}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{photo.filename}</div>
                 {photo.intent && photo.intent !== 'ignore' && (
                   <div className="mt-1">
-                    <span className="inline-block px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-xs">
+                    <span className="inline-block px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded text-xs">
                       {t(`intents.${photo.intent}`, { defaultValue: photo.intent })}
                     </span>
                   </div>
                 )}
                 {photo.summary && (
-                  <div className="text-xs text-gray-400 mt-1 line-clamp-2">{photo.summary}</div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-1 line-clamp-2">{photo.summary}</div>
                 )}
               </div>
             </div>
@@ -127,15 +127,15 @@ export default function Photos() {
           <button
             onClick={() => setPage(p => Math.max(1, p - 1))}
             disabled={page === 1}
-            className="px-3 py-1 rounded border border-gray-300 text-sm disabled:opacity-40"
+            className="px-3 py-1 rounded border border-gray-300 dark:border-gray-700 text-sm disabled:opacity-40"
           >
             {t('photos.prev_page')}
           </button>
-          <span className="px-3 py-1 text-sm text-gray-500">{page} / {totalPages}</span>
+          <span className="px-3 py-1 text-sm text-gray-500 dark:text-gray-400">{page} / {totalPages}</span>
           <button
             onClick={() => setPage(p => Math.min(totalPages, p + 1))}
             disabled={page === totalPages}
-            className="px-3 py-1 rounded border border-gray-300 text-sm disabled:opacity-40"
+            className="px-3 py-1 rounded border border-gray-300 dark:border-gray-700 text-sm disabled:opacity-40"
           >
             {t('photos.next_page')}
           </button>
@@ -148,11 +148,11 @@ export default function Photos() {
           onClick={() => setSelected(null)}
         >
           <div
-            className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
+            className="bg-white dark:bg-gray-900 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex flex-col md:flex-row">
-              <div className="md:w-1/2 bg-gray-100 flex items-center justify-center p-4">
+              <div className="md:w-1/2 bg-gray-100 dark:bg-gray-800 flex items-center justify-center p-4">
                 <img
                   src={getPhotoUrl(selected.id)}
                   alt={selected.filename}
@@ -161,8 +161,8 @@ export default function Photos() {
               </div>
               <div className="md:w-1/2 p-6 space-y-4">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-bold text-gray-800 truncate">{selected.filename}</h2>
-                  <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+                  <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 truncate">{selected.filename}</h2>
+                  <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-xl">✕</button>
                 </div>
 
                 {selected.analysis ? (
@@ -179,14 +179,14 @@ export default function Photos() {
                     {selected.analysis.summary && (
                       <div>
                         <div className="text-xs text-gray-400 mb-1">{t('photos.summary')}</div>
-                        <div className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3">{selected.analysis.summary}</div>
+                        <div className="text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded-lg p-3">{selected.analysis.summary}</div>
                       </div>
                     )}
 
                     {selected.analysis.entities && selected.analysis.entities !== '[]' && (
                       <div>
                         <div className="text-xs text-gray-400 mb-1">{t('photos.entities')}</div>
-                        <div className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3 font-mono text-xs">
+                        <div className="text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded-lg p-3 font-mono text-xs">
                           {selected.analysis.entities}
                         </div>
                       </div>
@@ -195,12 +195,12 @@ export default function Photos() {
                     {selected.analysis.error_message && (
                       <div>
                         <div className="text-xs text-red-400 mb-1">{t('photos.error_msg')}</div>
-                        <div className="text-sm text-red-600 bg-red-50 rounded-lg p-3">{selected.analysis.error_message}</div>
+                        <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg p-3">{selected.analysis.error_message}</div>
                       </div>
                     )}
                   </>
                 ) : (
-                  <div className="text-gray-400 text-sm">{t('photos.no_analysis')}</div>
+                  <div className="text-gray-400 dark:text-gray-500 text-sm">{t('photos.no_analysis')}</div>
                 )}
 
                 <div className="flex gap-2 pt-2">
@@ -212,7 +212,7 @@ export default function Photos() {
                   </button>
                   <button
                     onClick={() => handleDelete(selected.id)}
-                    className="px-4 py-2 border border-red-300 text-red-500 rounded-lg hover:bg-red-50 text-sm"
+                    className="px-4 py-2 border border-red-300 dark:border-red-700 text-red-500 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-sm"
                   >
                     {t('photos.delete')}
                   </button>
@@ -230,7 +230,7 @@ function InfoField({ label, value }: { label: string; value: string | undefined 
   return (
     <div>
       <div className="text-xs text-gray-400">{label}</div>
-      <div className="text-sm text-gray-700 font-medium">{value || '-'}</div>
+      <div className="text-sm text-gray-700 dark:text-gray-300 font-medium">{value || '-'}</div>
     </div>
   );
 }

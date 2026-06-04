@@ -77,7 +77,7 @@ export default function ChatPage() {
   const handleSend = () => {
     const text = input.trim();
     if ((!text && !attachedFile) || sending) return;
-    doSend(text || '(发送了附件)', attachedFile);
+    doSend(text || t('chat.sent_attachment'), attachedFile);
     setInput('');
     setAttachedFile(null);
   };
