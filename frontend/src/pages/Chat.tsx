@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Markdown from 'react-markdown';
 import axios from 'axios';
+import { Paperclip, Bot, Wrench, Zap, X } from 'lucide-react';
 import {
   getConversations, getConversation, deleteConversation, getSkills,
   type ChatMessage, type Conversation, type Skill,
@@ -40,7 +41,7 @@ export default function ChatPage() {
     setLastError(null);
     setLastFailedInput(null);
 
-    const userMsg: ChatMessage = { id: Date.now(), role: 'user', content: text + (file ? ` 📎 ${file.name}` : ''), created_at: new Date().toISOString() };
+    const userMsg: ChatMessage = { id: Date.now(), role: 'user', content: text + (file ? ` [attachment] ${file.name}` : ''), created_at: new Date().toISOString() };
     setMessages(prev => [...prev, userMsg]);
 
     try {
@@ -67,7 +68,7 @@ export default function ChatPage() {
       }
       setLastError(detail);
       setLastFailedInput(text);
-      setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: `❌ ${t('chat.send_failed', 'Send failed')}\n${detail}`, created_at: new Date().toISOString() }]);
+      setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: `Error: ${t('chat.send_failed', 'Send failed')}\n${detail}`, created_at: new Date().toISOString() }]);
     } finally {
       setSending(false);
     }
@@ -111,7 +112,7 @@ export default function ChatPage() {
                     setConversations(prev => prev.filter(c => c.id !== conv.id));
                     if (activeConvId === conv.id) { setActiveConvId(null); setMessages([]); }
                   });
-                }} className="ml-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 text-xs">✕</button>
+                }} className="ml-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><X size={14} /></button>
               </div>
             ))}
           </div>
@@ -125,19 +126,19 @@ export default function ChatPage() {
           <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex-1">
             {activeSkill ? `${activeSkill.icon} ${activeSkill.name}` : activeConvId ? conversations.find(c => c.id === activeConvId)?.title || t('chat.title', 'AI Assistant') : t('chat.new_chat', 'New Chat')}
           </h2>
-          {activeSkill && <button onClick={() => setActiveSkill(null)} className="text-xs text-gray-400 hover:text-gray-600">✕ {t('chat.cancel_skill', 'Cancel skill')}</button>}
+          {activeSkill && <button onClick={() => setActiveSkill(null)} className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1"><X size={14} /> {t('chat.cancel_skill', 'Cancel skill')}</button>}
         </div>
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-gray-400">
-              <div className="text-4xl mb-4">🤖</div>
+              <div className="mb-4 text-gray-400"><Bot size={40} /></div>
               <div className="text-lg font-medium dark:text-gray-300">{t('chat.welcome', 'Evatar AI Assistant')}</div>
               <div className="text-sm mt-2 text-center max-w-md">{t('chat.welcome_desc', 'Search screenshots, search internet, upload images')}</div>
               {skills.length > 0 && (
                 <div className="mt-6 w-full max-w-lg">
-                  <div className="text-xs text-gray-400 mb-2 text-left">⚡ {t('chat.skills', 'Skills')}</div>
+                  <div className="text-xs text-gray-400 mb-2 text-left flex items-center gap-1"><Zap size={12} /> {t('chat.skills', 'Skills')}</div>
                   <div className="grid grid-cols-2 gap-2">
                     {skills.map(skill => (
                       <button key={skill.id} onClick={() => setActiveSkill(skill)}
@@ -180,8 +181,8 @@ export default function ChatPage() {
         {/* Attached file preview */}
         {attachedFile && (
           <div className="mx-4 mb-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg flex items-center text-sm">
-            <span className="text-blue-600 dark:text-blue-400 flex-1">📎 {attachedFile.name} ({(attachedFile.size / 1024).toFixed(0)}KB)</span>
-            <button onClick={() => setAttachedFile(null)} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+            <span className="text-blue-600 dark:text-blue-400 flex-1 flex items-center gap-1"><Paperclip size={14} /> {attachedFile.name} ({(attachedFile.size / 1024).toFixed(0)}KB)</span>
+            <button onClick={() => setAttachedFile(null)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
           </div>
         )}
 
@@ -195,7 +196,7 @@ export default function ChatPage() {
           <div className="flex gap-2">
             <input type="file" ref={fileInputRef} className="hidden" accept="image/*,.pdf,.txt,.csv,.json" onChange={e => setAttachedFile(e.target.files?.[0] || null)} />
             <button onClick={() => fileInputRef.current?.click()}
-              className="px-2 py-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" title="上传附件">📎</button>
+              className="px-2 py-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" title={t('chat.upload_attachment', 'Upload attachment')}><Paperclip size={16} /></button>
             <textarea value={input} onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
               placeholder={activeSkill ? t('chat.skill_placeholder', { name: activeSkill.name, defaultValue: `Using "${activeSkill.name}"...` }) : t('chat.placeholder', 'Type a message...')}
@@ -222,8 +223,8 @@ function MessageBubble({ message }: { message: ChatMessage }) {
     try { toolData = JSON.parse(message.content); } catch { /* */ }
     return (
       <details className="mx-auto max-w-2xl">
-        <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-600">
-          🔧 {message.tool_name || 'tool'} {toolData.results ? `(${toolData.results.length})` : ''}
+        <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-600 flex items-center gap-1">
+          <Wrench size={12} /> {message.tool_name || 'tool'} {toolData.results ? `(${toolData.results.length})` : ''}
         </summary>
         <div className="mt-1 bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-xs text-gray-600 dark:text-gray-400 font-mono max-h-40 overflow-y-auto">
           {((toolData.results || []) as { title?: string; snippet?: string; summary?: string }[]).map((r, i) => (
@@ -247,7 +248,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
         {toolCalls.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-1">
             {toolCalls.map((tc, i) => (
-              <span key={i} className="inline-block px-2 py-0.5 bg-white/20 rounded text-xs">🔧 {tc.function.name}</span>
+              <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-white/20 rounded text-xs"><Wrench size={12} /> {tc.function.name}</span>
             ))}
           </div>
         )}

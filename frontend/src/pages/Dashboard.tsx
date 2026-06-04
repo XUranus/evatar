@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Image, CheckCircle, Clock, Loader, AlertCircle, Sparkles } from 'lucide-react';
 import { getStats, type Stats } from '../api/client';
 
 export default function Dashboard() {
@@ -17,7 +18,7 @@ export default function Dashboard() {
     return (
       <div className="flex items-center justify-center" style={{ height: '60vh', color: 'var(--text-muted)' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '2rem', marginBottom: '12px', opacity: 0.4 }}>◈</div>
+          <div style={{ marginBottom: '12px', opacity: 0.4 }} className="text-gray-400"><Sparkles size={32} /></div>
           <div className="label">{t('photos.loading', 'Loading...')}</div>
         </div>
       </div>
@@ -25,11 +26,11 @@ export default function Dashboard() {
   }
 
   const cards = [
-    { key: 'total_photos', value: stats.total_photos, color: 'blue', icon: '◎' },
-    { key: 'analyzed', value: stats.done, color: 'teal', icon: '✓' },
-    { key: 'pending', value: stats.pending, color: 'amber', icon: '○' },
-    { key: 'processing', value: stats.processing, color: 'blue', icon: '◌' },
-    { key: 'errors', value: stats.errors, color: 'coral', icon: '✕' },
+    { key: 'total_photos', value: stats.total_photos, color: 'blue', icon: <Image size={16} /> },
+    { key: 'analyzed', value: stats.done, color: 'teal', icon: <CheckCircle size={16} /> },
+    { key: 'pending', value: stats.pending, color: 'amber', icon: <Clock size={16} /> },
+    { key: 'processing', value: stats.processing, color: 'blue', icon: <Loader size={16} /> },
+    { key: 'errors', value: stats.errors, color: 'coral', icon: <AlertCircle size={16} /> },
   ];
 
   return (
@@ -52,7 +53,7 @@ export default function Dashboard() {
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
               <span className="label">{t(`dashboard.${card.key}`, card.key)}</span>
-              <span style={{ color: `var(--${card.color})`, fontSize: '18px', opacity: 0.6 }}>{card.icon}</span>
+              <span style={{ color: `var(--${card.color})`, opacity: 0.6, display: 'flex', alignItems: 'center' }}>{card.icon}</span>
             </div>
             <div className={`stat-number ${card.color}`}>{card.value}</div>
           </div>

@@ -1,14 +1,18 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import Markdown from 'react-markdown';
+import { Lightbulb, Clock, BarChart3, FileText, Pin, PinOff, Trash2, RefreshCw, Loader } from 'lucide-react';
 import {
   getDynamics, markDynamicRead, toggleDynamicPin, deleteDynamic, triggerReasoning,
   markAllDynamicsRead,
   type DynamicItem,
 } from '../api/client';
 
-const categoryIcons: Record<string, string> = {
-  insight: '💡', reminder: '⏰', report: '📊', note: '📝',
+const categoryIcons: Record<string, React.ReactNode> = {
+  insight: <Lightbulb size={14} />,
+  reminder: <Clock size={14} />,
+  report: <BarChart3 size={14} />,
+  note: <FileText size={14} />,
 };
 
 const categoryColors: Record<string, string> = {
@@ -81,7 +85,7 @@ export default function DynamicsPage() {
                   : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-700 hover:border-blue-400'
               }`}
             >
-              {c ? `${categoryIcons[c]} ${t(`dynamic.categories.${c}`, c)}` : t('dynamic.all', '全部')}
+              {c ? <>{categoryIcons[c]} {t(`dynamic.categories.${c}`, c)}</> : t('dynamic.all', '全部')}
             </button>
           ))}
           {unreadCount > 0 && (
@@ -97,7 +101,7 @@ export default function DynamicsPage() {
             disabled={triggering}
             className="px-3 py-1 bg-blue-500 text-white rounded-full text-sm hover:bg-blue-600 disabled:opacity-40"
           >
-            {triggering ? '⏳' : '🔄'} {t('dynamic.trigger', '生成')}
+            {triggering ? <Loader size={14} className="animate-spin" /> : <RefreshCw size={14} />} {t('dynamic.trigger', '生成')}
           </button>
         </div>
       </div>
@@ -116,7 +120,7 @@ export default function DynamicsPage() {
 
       {filteredItems.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-64 text-gray-400 dark:text-gray-500">
-          <div className="text-4xl mb-4">📝</div>
+          <div className="text-4xl mb-4 text-gray-400"><FileText size={48} /></div>
           <div className="text-lg">{t('dynamic.empty', '暂无动态')}</div>
           <div className="text-sm mt-2">{t('dynamic.empty_desc', '后台意图推理会定期分析你的截图和聊天，生成有价值的笔记。')}</div>
         </div>
@@ -152,7 +156,7 @@ function DynamicCard({ item, expanded, onToggle, onPin, onDelete }: {
   item: DynamicItem; expanded: boolean; onToggle: () => void; onPin: () => void; onDelete: () => void;
 }) {
   const { t } = useTranslation();
-  const icon = categoryIcons[item.category] || '📝';
+  const icon = categoryIcons[item.category] || <FileText size={14} />;
   const color = categoryColors[item.category] || categoryColors.note;
 
   return (
@@ -162,11 +166,11 @@ function DynamicCard({ item, expanded, onToggle, onPin, onDelete }: {
       {/* Header */}
       <div className="p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50" onClick={onToggle}>
         <div className="flex items-start gap-3">
-          <span className="text-2xl">{icon}</span>
+          <span className="flex items-center justify-center" style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--bg-secondary, #f3f4f6)', color: 'var(--text-secondary)' }}>{icon}</span>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <h3 className="font-semibold text-gray-800 dark:text-gray-100 truncate">{item.title}</h3>
-              {item.is_pinned && <span className="text-blue-500 text-xs">📌</span>}
+              {item.is_pinned && <span className="text-blue-500"><Pin size={12} /></span>}
               {!item.is_read && <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />}
             </div>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{item.summary}</p>
@@ -186,10 +190,10 @@ function DynamicCard({ item, expanded, onToggle, onPin, onDelete }: {
           </div>
           <div className="flex gap-1 flex-shrink-0">
             <button onClick={e => { e.stopPropagation(); onPin(); }} className="p-1 text-gray-400 hover:text-blue-500" title="Pin">
-              {item.is_pinned ? '📌' : '📍'}
+              {item.is_pinned ? <Pin size={12} /> : <PinOff size={12} />}
             </button>
             <button onClick={e => { e.stopPropagation(); onDelete(); }} className="p-1 text-gray-400 hover:text-red-500" title="Delete">
-              🗑️
+              <Trash2 size={14} />
             </button>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Settings, Lock, Bot, Plug, Wrench, Trash2 } from 'lucide-react';
 import {
   getLLMConfig, updateLLMConfig, getLLMPresets, applyLLMPreset,
   getMCPServers, createMCPServer, deleteMCPServer,
@@ -22,12 +23,12 @@ const PROVIDER_COLORS: Record<string, string> = {
   deepseek: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400 border-cyan-300 dark:border-cyan-700',
 };
 
-const tabItems: { key: SettingsTab; icon: string; labelKey: string }[] = [
-  { key: 'general', icon: '⚙️', labelKey: 'settings.tab_general' },
-  { key: 'privacy', icon: '🔒', labelKey: 'settings.tab_privacy' },
-  { key: 'llm', icon: '🤖', labelKey: 'settings.tab_llm' },
-  { key: 'mcp', icon: '🔌', labelKey: 'settings.tab_mcp' },
-  { key: 'advanced', icon: '🛠️', labelKey: 'settings.tab_advanced' },
+const tabItems: { key: SettingsTab; icon: React.ReactNode; labelKey: string }[] = [
+  { key: 'general', icon: <Settings size={14} />, labelKey: 'settings.tab_general' },
+  { key: 'privacy', icon: <Lock size={14} />, labelKey: 'settings.tab_privacy' },
+  { key: 'llm', icon: <Bot size={14} />, labelKey: 'settings.tab_llm' },
+  { key: 'mcp', icon: <Plug size={14} />, labelKey: 'settings.tab_mcp' },
+  { key: 'advanced', icon: <Wrench size={14} />, labelKey: 'settings.tab_advanced' },
 ];
 
 export default function SettingsPage() {
@@ -50,7 +51,7 @@ export default function SettingsPage() {
                 : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
             }`}
           >
-            <span>{item.icon}</span>
+            <span className="flex items-center">{item.icon}</span>
             <span className="hidden sm:inline">{t(item.labelKey)}</span>
           </button>
         ))}
@@ -96,11 +97,11 @@ function GeneralSettings(// eslint-disable-next-line @typescript-eslint/no-expli
   return (
     <div className="space-y-4">
       <Card>
-        <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3">应用信息</h2>
+        <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3">{t('settings.app_info')}</h2>
         <div className="grid grid-cols-2 gap-4 text-sm">
-          <div><span className="text-gray-400">版本</span><div className="font-medium dark:text-gray-200">0.1.0</div></div>
-          <div><span className="text-gray-400">后端</span><div className="font-medium dark:text-gray-200">FastAPI + SQLite</div></div>
-          <div><span className="text-gray-400">前端</span><div className="font-medium dark:text-gray-200">React + Vite + Tailwind</div></div>
+          <div><span className="text-gray-400">{t('settings.version')}</span><div className="font-medium dark:text-gray-200">0.1.0</div></div>
+          <div><span className="text-gray-400">{t('settings.backend')}</span><div className="font-medium dark:text-gray-200">FastAPI + SQLite</div></div>
+          <div><span className="text-gray-400">{t('settings.frontend')}</span><div className="font-medium dark:text-gray-200">React + Vite + Tailwind</div></div>
           <div><span className="text-gray-400">Android</span><div className="font-medium dark:text-gray-200">Kotlin + Jetpack Compose</div></div>
         </div>
       </Card>
@@ -148,8 +149,8 @@ function GeneralSettings(// eslint-disable-next-line @typescript-eslint/no-expli
       </Card>
 
       <Card>
-        <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3">语言</h2>
-        <p className="text-sm text-gray-600 dark:text-gray-400">使用左下角的语言切换按钮更改界面语言。</p>
+        <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3">{t('settings.language')}</h2>
+        <p className="text-sm text-gray-600 dark:text-gray-400">{t('settings.language_desc')}</p>
       </Card>
     </div>
   );
@@ -241,7 +242,7 @@ function PrivacySettings(// eslint-disable-next-line @typescript-eslint/no-expli
                   : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
               }`}
             >
-              {days}天
+              {t('settings.retention_days', { count: days })}
             </button>
           ))}
         </div>
@@ -312,7 +313,7 @@ function LLMSettings({ t }: { t: (key: string, opts?: Record<string, unknown>) =
             <div><span className="text-gray-400">{t('settings.provider')}</span><div className="font-medium dark:text-gray-200">{config.provider}</div></div>
             <div><span className="text-gray-400">{t('settings.model')}</span><div className="font-medium dark:text-gray-200">{config.model}</div></div>
             <div><span className="text-gray-400">{t('settings.max_context')}</span><div className="font-medium dark:text-gray-200">{(config.max_context_tokens / 1024).toFixed(0)}K</div></div>
-            <div><span className="text-gray-400">API Key</span><div className="font-medium dark:text-gray-200">{config.api_key_set ? '✅ 已设置' : '❌ 未设置'}</div></div>
+            <div><span className="text-gray-400">API Key</span><div className="font-medium dark:text-gray-200">{config.api_key_set ? t('settings.api_key_set_display') : t('settings.api_key_not_set_display')}</div></div>
           </div>
         </Card>
       )}
@@ -359,6 +360,7 @@ function LLMSettings({ t }: { t: (key: string, opts?: Record<string, unknown>) =
 }
 
 function MCPSettings() {
+  const { t } = useTranslation();
   const [servers, setServers] = useState<MCPServer[]>([]);
   const [form, setForm] = useState({ id: '', name: '', url: '', description: '' });
 
@@ -367,48 +369,49 @@ function MCPSettings() {
   return (
     <div className="space-y-4">
       <Card>
-        <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-1">MCP 服务器</h2>
-        <p className="text-xs text-gray-400 mb-4">Model Context Protocol — 连接外部工具服务器扩展 AI 能力</p>
+        <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-1">{t('settings.mcp_servers', 'MCP Servers')}</h2>
+        <p className="text-xs text-gray-400 mb-4">{t('settings.mcp_desc', 'Model Context Protocol — connect external tool servers to extend AI capabilities')}</p>
         {servers.length > 0 && (
           <div className="space-y-2 mb-4">
             {servers.map(s => (
               <div key={s.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                 <div><div className="text-sm font-medium dark:text-gray-200">{s.name}</div><div className="text-xs text-gray-400">{s.url}</div>{s.description && <div className="text-xs text-gray-400 mt-0.5">{s.description}</div>}</div>
-                <button onClick={() => deleteMCPServer(s.id).then(() => setServers(prev => prev.filter(x => x.id !== s.id)))} className="text-red-400 hover:text-red-600 text-xs">删除</button>
+                <button onClick={() => deleteMCPServer(s.id).then(() => setServers(prev => prev.filter(x => x.id !== s.id)))} className="text-red-400 hover:text-red-600 text-xs">{t('common.delete', 'Delete')}</button>
               </div>
             ))}
           </div>
         )}
         <div className="grid grid-cols-2 gap-2">
           <input value={form.id} onChange={e => setForm(f => ({ ...f, id: e.target.value }))} placeholder="ID" className="px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg text-sm" />
-          <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="名称" className="px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg text-sm" />
+          <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder={t('settings.name_placeholder', 'Name')} className="px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg text-sm" />
           <input value={form.url} onChange={e => setForm(f => ({ ...f, url: e.target.value }))} placeholder="URL" className="px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg text-sm col-span-2" />
-          <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="描述" className="px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg text-sm col-span-2" />
+          <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder={t('settings.description_placeholder', 'Description')} className="px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg text-sm col-span-2" />
         </div>
         <button onClick={() => { if (!form.id || !form.name || !form.url) return; createMCPServer(form as Omit<MCPServer, 'enabled'>).then(() => { getMCPServers().then(r => setServers(r.data.servers)); setForm({ id: '', name: '', url: '', description: '' }); }); }}
-          className="mt-3 px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600">添加</button>
+          className="mt-3 px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600">{t('common.add', 'Add')}</button>
       </Card>
     </div>
   );
 }
 
 function AdvancedSettings() {
+  const { t } = useTranslation();
   return (
     <div className="space-y-4">
       <Card>
-        <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3">搜索 API</h2>
-        <p className="text-xs text-gray-400 mb-3">配置网络搜索 API 以启用 AI 互联网搜索功能。支持 Tavily 或 Brave Search。</p>
+        <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3">{t('settings.search_api', 'Search API')}</h2>
+        <p className="text-xs text-gray-400 mb-3">{t('settings.search_api_desc', 'Configure web search API for AI internet search. Supports Tavily or Brave Search.')}</p>
         <div className="space-y-3">
           <div><label className="block text-xs text-gray-400 mb-1">Tavily API Key</label><input type="password" placeholder="tvly-..." className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg text-sm" /></div>
           <div><label className="block text-xs text-gray-400 mb-1">Brave Search API Key</label><input type="password" placeholder="BSA..." className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg text-sm" /></div>
         </div>
       </Card>
       <Card>
-        <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3">数据管理</h2>
+        <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3">{t('settings.data_management', 'Data Management')}</h2>
         <div className="space-y-2">
-          <button className="w-full text-left px-4 py-2 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm hover:bg-gray-100 dark:hover:bg-gray-700">🗑️ 清除所有分析缓存</button>
-          <button className="w-full text-left px-4 py-2 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm hover:bg-gray-100 dark:hover:bg-gray-700">📥 导出所有数据</button>
-          <button className="w-full text-left px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm hover:bg-red-100 dark:hover:bg-red-900/40">⚠️ 重置数据库</button>
+          <button className="w-full text-left px-4 py-2 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"><Trash2 size={14} /> {t('settings.clear_analysis_cache', 'Clear analysis cache')}</button>
+          <button className="w-full text-left px-4 py-2 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm hover:bg-gray-100 dark:hover:bg-gray-700">{t('settings.export_all_data', 'Export all data')}</button>
+          <button className="w-full text-left px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm hover:bg-red-100 dark:hover:bg-red-900/40">{t('settings.reset_database', 'Reset database')}</button>
         </div>
       </Card>
     </div>

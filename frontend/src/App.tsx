@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { LayoutDashboard, Image, MessageSquare, Newspaper, Settings, Sparkles, Sun, Moon, Languages } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import Photos from './pages/Photos';
 import ChatPage from './pages/Chat';
@@ -30,12 +31,12 @@ export default function App() {
     i18n.changeLanguage(next);
   };
 
-  const navItems: { key: Page; icon: string; label: string }[] = [
-    { key: 'dashboard', icon: '◈', label: t('nav.dashboard', 'Dashboard') },
-    { key: 'photos', icon: '◎', label: t('nav.photos', 'Photos') },
-    { key: 'chat', icon: '◆', label: t('nav.chat', 'Chat') },
-    { key: 'dynamics', icon: '◇', label: t('nav.dynamics', 'Dynamics') },
-    { key: 'settings', icon: '⚙', label: t('nav.settings', 'Settings') },
+  const navItems: { key: Page; icon: React.ReactNode; label: string }[] = [
+    { key: 'dashboard', icon: <LayoutDashboard size={16} />, label: t('nav.dashboard', 'Dashboard') },
+    { key: 'photos', icon: <Image size={16} />, label: t('nav.photos', 'Photos') },
+    { key: 'chat', icon: <MessageSquare size={16} />, label: t('nav.chat', 'Chat') },
+    { key: 'dynamics', icon: <Newspaper size={16} />, label: t('nav.dynamics', 'Dynamics') },
+    { key: 'settings', icon: <Settings size={16} />, label: t('nav.settings', 'Settings') },
   ];
 
   return (
@@ -62,7 +63,7 @@ export default function App() {
                 boxShadow: 'var(--shadow-glow)',
               }}
             >
-              <span style={{ color: 'var(--amber)', fontSize: '16px' }}>◈</span>
+              <Sparkles size={16} style={{ color: 'var(--amber)' }} />
             </div>
             <div>
               <h1
@@ -122,7 +123,7 @@ export default function App() {
                   }
                 }}
               >
-                <span style={{ fontSize: '14px', width: '20px', textAlign: 'center', opacity: active ? 1 : 0.6 }}>
+                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '20px', opacity: active ? 1 : 0.6 }}>
                   {item.icon}
                 </span>
                 {item.label}
@@ -155,14 +156,14 @@ export default function App() {
               className="btn-ghost"
               style={{ padding: '4px 10px', fontSize: '0.7rem', borderRadius: '6px' }}
             >
-              {i18n.language === 'zh-CN' ? 'EN' : '中'}
+              <Languages size={14} />
             </button>
             <button
               onClick={() => setDark(!dark)}
               className="btn-ghost"
               style={{ padding: '4px 10px', fontSize: '0.7rem', borderRadius: '6px' }}
             >
-              {dark ? '☀' : '☾'}
+              {dark ? <Sun size={14} /> : <Moon size={14} />}
             </button>
           </div>
         </div>

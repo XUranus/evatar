@@ -84,9 +84,12 @@
     "current_config": "Current Config",
     "api_key_set": "Set",
     "api_key_not_set": "Not set",
+    "api_key_set_display": "✅ Set",
+    "api_key_not_set_display": "❌ Not set",
     "privacy": "Privacy",
     "retention": "Data Retention (Days)",
     "retention_desc": "Photos and analysis data older than the retention period will be automatically cleaned up",
+    "retention_days": "{{count}} days",
     "clear_data": "Clear All Data",
     "clear_data_confirm": "Are you sure you want to clear all data? This action cannot be undone!",
     "clear_data_success": "All data has been cleared",
@@ -106,7 +109,23 @@
     "tab_privacy": "Privacy",
     "tab_llm": "LLM Config",
     "tab_mcp": "MCP Servers",
-    "tab_advanced": "Advanced"
+    "tab_advanced": "Advanced",
+    "app_info": "App Info",
+    "version": "Version",
+    "backend": "Backend",
+    "frontend": "Frontend",
+    "language": "Language",
+    "language_desc": "Use the language switch button at the bottom left to change the interface language.",
+    "mcp_servers": "MCP Servers",
+    "mcp_desc": "Model Context Protocol — connect external tool servers to extend AI capabilities",
+    "name_placeholder": "Name",
+    "description_placeholder": "Description",
+    "search_api": "Search API",
+    "search_api_desc": "Configure web search API to enable AI internet search. Supports Tavily or Brave Search.",
+    "data_management": "Data Management",
+    "clear_analysis_cache": "Clear All Analysis Cache",
+    "export_all_data": "Export All Data",
+    "reset_database": "Reset Database"
   },
   "dynamic": {
     "title": "Dynamics",
@@ -118,6 +137,7 @@
     "mark_all_read_done": "All marked as read",
     "search_placeholder": "Search dynamics...",
     "showing": "Showing {{shown}}/{{total}}",
+    "confirm_delete": "Are you sure?",
     "categories": {
       "insight": "Insight",
       "reminder": "Reminder",
@@ -141,7 +161,15 @@
     "cancel": "Cancel",
     "cancel_skill": "Cancel skill",
     "unknown_error": "Unknown error",
-    "load_error": "Failed to load"
+    "load_error": "Failed to load",
+    "sent_attachment": "(sent an attachment)",
+    "upload_attachment": "Upload attachment"
+  },
+  "common": {
+    "delete": "Delete",
+    "add": "Add",
+    "pin": "Pin",
+    "unpin": "Unpin"
   },
   "presets": {
     "mimo": "Xiaomi MiMo",

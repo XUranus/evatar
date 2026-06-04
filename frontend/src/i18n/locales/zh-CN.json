@@ -84,9 +84,12 @@
     "current_config": "当前配置",
     "api_key_set": "已设置",
     "api_key_not_set": "未设置",
+    "api_key_set_display": "✅ 已设置",
+    "api_key_not_set_display": "❌ 未设置",
     "privacy": "隐私",
     "retention": "数据保留天数",
     "retention_desc": "超过保留期的照片和分析数据将被自动清理",
+    "retention_days": "{{count}}天",
     "clear_data": "清除所有数据",
     "clear_data_confirm": "确定要清除所有数据吗？此操作不可撤销！",
     "clear_data_success": "所有数据已清除",
@@ -106,7 +109,23 @@
     "tab_privacy": "隐私",
     "tab_llm": "LLM 设置",
     "tab_mcp": "MCP 服务器",
-    "tab_advanced": "高级"
+    "tab_advanced": "高级",
+    "app_info": "应用信息",
+    "version": "版本",
+    "backend": "后端",
+    "frontend": "前端",
+    "language": "语言",
+    "language_desc": "使用左下角的语言切换按钮更改界面语言。",
+    "mcp_servers": "MCP 服务器",
+    "mcp_desc": "Model Context Protocol — 连接外部工具服务器扩展 AI 能力",
+    "name_placeholder": "名称",
+    "description_placeholder": "描述",
+    "search_api": "搜索 API",
+    "search_api_desc": "配置网络搜索 API 以启用 AI 互联网搜索功能。支持 Tavily 或 Brave Search。",
+    "data_management": "数据管理",
+    "clear_analysis_cache": "清除所有分析缓存",
+    "export_all_data": "导出所有数据",
+    "reset_database": "重置数据库"
   },
   "dynamic": {
     "title": "动态",
@@ -118,6 +137,7 @@
     "mark_all_read_done": "已全部标为已读",
     "search_placeholder": "搜索动态...",
     "showing": "显示 {{shown}}/{{total}}",
+    "confirm_delete": "确定删除？",
     "categories": {
       "insight": "洞察",
       "reminder": "提醒",
@@ -141,7 +161,15 @@
     "cancel": "取消",
     "cancel_skill": "取消技能",
     "unknown_error": "未知错误",
-    "load_error": "加载失败"
+    "load_error": "加载失败",
+    "sent_attachment": "(发送了附件)",
+    "upload_attachment": "上传附件"
+  },
+  "common": {
+    "delete": "删除",
+    "add": "添加",
+    "pin": "置顶",
+    "unpin": "取消置顶"
   },
   "presets": {
     "mimo": "小米 MiMo",
