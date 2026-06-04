@@ -1,5 +1,6 @@
 """Memory service: extract, store, retrieve, and decay agent memories."""
 
+import hashlib
 import json
 import logging
 from datetime import datetime, timedelta, timezone
@@ -62,10 +63,12 @@ async def extract_memories_from_text(
             mem_type = entry.get("memory_type", "short_term")
             expires = now + timedelta(hours=48) if mem_type == "short_term" else None
 
-            # Dedup: check if similar memory already exists
+            # Dedup: check with normalized content hash
+            normalized = entry["content"].lower().strip().rstrip("。").rstrip(".")
+            content_hash = hashlib.md5(normalized.encode("utf-8")).hexdigest()
             existing = db.query(Memory).filter(
                 Memory.device_id == device_id,
-                Memory.content == entry["content"],
+                Memory.content_hash == content_hash,
             ).first()
             if existing:
                 existing.access_count += 1
@@ -82,6 +85,7 @@ async def extract_memories_from_text(
             memory = Memory(
                 content=mem_content,
                 encrypted_content=enc_content,
+                content_hash=content_hash,
                 memory_type=mem_type,
                 source_type=source_type,
                 source_id=source_id,
@@ -111,17 +115,13 @@ def get_relevant_memories(db: Session, device_id: str, limit: int = 10) -> list[
     """Get recent relevant memories for a device (short-term + long-term, pruned)."""
     now = datetime.now(timezone.utc).replace(tzinfo=None)
 
-    # Clean expired short-term memories
-    db.query(Memory).filter(
-        Memory.expires_at.isnot(None),
-        Memory.expires_at < now,
-    ).delete()
-    db.commit()
-
-    # Get top memories by importance * recency
+    # Get top memories by importance * recency, excluding expired
     memories = (
         db.query(Memory)
         .filter(Memory.device_id == device_id)
+        .filter(
+            (Memory.expires_at.is_(None)) | (Memory.expires_at >= now),
+        )
         .order_by(desc(Memory.importance), desc(Memory.last_accessed))
         .limit(limit)
         .all()

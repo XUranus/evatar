@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
 
     # Start background scheduler
     from services.scheduler import start_scheduler, stop_scheduler
-    start_scheduler()
+    await start_scheduler()
     logger.info("Background scheduler started")
 
     yield
@@ -49,8 +49,8 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if not settings.api_key else [
-        "http://localhost:3000", "http://localhost:5173",
+    allow_origins=[
+        "http://localhost:3000", "http://localhost:5173", "http://localhost:8000",
     ],
     allow_credentials=False,
     allow_methods=["*"],
@@ -65,8 +65,7 @@ async def auth_middleware(request: Request, call_next):
     if settings.api_key and request.url.path not in EXEMPT_PATHS:
         auth = request.headers.get("Authorization", "")
         key_from_header = auth.removeprefix("Bearer ").strip() if auth.startswith("Bearer ") else ""
-        key_from_query = request.query_params.get("api_key", "")
-        if key_from_header != settings.api_key and key_from_query != settings.api_key:
+        if key_from_header != settings.api_key:
             raise HTTPException(status_code=401, detail="Invalid or missing API key")
     return await call_next(request)
 

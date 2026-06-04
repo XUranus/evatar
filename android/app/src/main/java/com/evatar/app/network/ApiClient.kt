@@ -25,7 +25,7 @@ class ApiClient private constructor(private val context: Context) {
         private const val TAG = "ApiClient"
         private const val PREF_NAME = "evatar_prefs"
         private const val KEY_SERVER_URL = "server_url"
-        private const val DEFAULT_SERVER_URL = "http://192.168.0.107:8000"
+        private const val DEFAULT_SERVER_URL = ""
 
         @Volatile
         private var INSTANCE: ApiClient? = null
@@ -57,9 +57,13 @@ class ApiClient private constructor(private val context: Context) {
     fun getServerUrl(): String {
         return cachedUrl ?: synchronized(this) {
             val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
-            (prefs.getString(KEY_SERVER_URL, DEFAULT_SERVER_URL) ?: DEFAULT_SERVER_URL).also { cachedUrl = it }
+            val url = prefs.getString(KEY_SERVER_URL, DEFAULT_SERVER_URL) ?: DEFAULT_SERVER_URL
+            cachedUrl = url
+            url
         }
     }
+
+    fun isServerConfigured(): Boolean = getServerUrl().isNotBlank()
 
     fun setServerUrl(url: String) {
         val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
@@ -213,6 +217,24 @@ class ApiClient private constructor(private val context: Context) {
         } catch (e: Exception) {
             Log.e(TAG, "getConversationMessages error", e)
             JSONArray()
+        }
+    }
+
+    // ── Dynamics ──
+
+    fun getDynamics(category: String? = null, page: Int = 1, pageSize: Int = 50): JSONObject {
+        return try {
+            val urlBuilder = StringBuilder("${getServerUrl()}/api/dynamics?page=$page&page_size=$pageSize")
+            if (!category.isNullOrEmpty()) urlBuilder.append("&category=$category")
+            val request = Request.Builder().url(urlBuilder.toString()).get().build()
+            execute(request) { resp ->
+                if (resp.isSuccessful) {
+                    JSONObject(resp.body?.string() ?: "{}")
+                } else JSONObject()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "getDynamics error", e)
+            JSONObject()
         }
     }
 }

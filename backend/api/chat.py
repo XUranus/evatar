@@ -3,7 +3,7 @@ import base64
 from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Form, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import desc
+from sqlalchemy import desc, func, select
 
 from models import get_db, Conversation, ChatMessage, Skill
 from services.agent import chat
@@ -83,24 +83,53 @@ async def list_conversations(
     page_size: int = Query(50, ge=1, le=100),
     db: Session = Depends(get_db),
 ):
-    query = db.query(Conversation).options(
-        joinedload(Conversation.messages)
-    ).order_by(desc(Conversation.updated_at))
+    # Subquery: message count per conversation
+    msg_count_sq = (
+        select(ChatMessage.conversation_id, func.count(ChatMessage.id).label("cnt"))
+        .group_by(ChatMessage.conversation_id)
+        .subquery()
+    )
+    # Subquery: last user message content per conversation
+    last_msg_sq = (
+        select(
+            ChatMessage.conversation_id,
+            ChatMessage.content,
+            func.row_number().over(
+                partition_by=ChatMessage.conversation_id,
+                order_by=desc(ChatMessage.created_at),
+            ).label("rn"),
+        )
+        .where(ChatMessage.role == "user")
+        .subquery()
+    )
+
+    query = (
+        db.query(
+            Conversation,
+            func.coalesce(msg_count_sq.c.cnt, 0).label("message_count"),
+            func.coalesce(last_msg_sq.c.content, "").label("last_message"),
+        )
+        .outerjoin(msg_count_sq, msg_count_sq.c.conversation_id == Conversation.id)
+        .outerjoin(
+            last_msg_sq,
+            (last_msg_sq.c.conversation_id == Conversation.id) & (last_msg_sq.c.rn == 1),
+        )
+        .order_by(desc(Conversation.updated_at))
+    )
 
     if device_id:
         query = query.filter(Conversation.device_id == device_id)
 
-    convs = query.offset((page - 1) * page_size).limit(page_size).all()
+    rows = query.offset((page - 1) * page_size).limit(page_size).all()
 
     items = []
-    for c in convs:
-        user_msgs = [m for m in c.messages if m.role == "user"]
+    for c, message_count, last_message in rows:
         items.append({
             "id": c.id, "title": c.title, "device_id": c.device_id,
             "created_at": c.created_at.isoformat() if c.created_at else None,
             "updated_at": c.updated_at.isoformat() if c.updated_at else None,
-            "message_count": len(c.messages),
-            "last_message": (user_msgs[-1].content or "")[:100] if user_msgs else "",
+            "message_count": message_count,
+            "last_message": (last_message or "")[:100],
         })
 
     return {"conversations": items}

@@ -48,7 +48,7 @@ fun SettingsTab(modifier: Modifier = Modifier) {
                     value = urlField,
                     onValueChange = { urlField = it },
                     label = { Text("URL") },
-                    placeholder = { Text("http://192.168.0.107:8000") },
+                    placeholder = { Text("http://your-server:8000") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )

@@ -67,7 +67,7 @@ fun HomeScreen(modifier: Modifier = Modifier) {
     LaunchedEffect(Unit) {
         checkAndAutoSync()
         while (true) {
-            kotlinx.coroutines.delay(5000)
+            kotlinx.coroutines.delay(30000)
             serverConnected = withContext(Dispatchers.IO) { syncManager.apiClient.checkHealth() }
         }
     }

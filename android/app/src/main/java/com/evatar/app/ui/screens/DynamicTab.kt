@@ -18,8 +18,6 @@ import com.evatar.app.network.ApiClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import org.json.JSONObject
 
 data class UiDynamic(
     val id: Int,
@@ -51,18 +49,10 @@ fun DynamicTab(modifier: Modifier = Modifier) {
 
     fun load() {
         scope.launch {
-            val arr = withContext(Dispatchers.IO) {
-                try {
-                    val url = "${apiClient.getServerUrl()}/api/dynamics?page=1&page_size=50" +
-                            if (filter.isNotEmpty()) "&category=$filter" else ""
-                    val request = okhttp3.Request.Builder().url(url).get().build()
-                    val response = okhttp3.OkHttpClient().newCall(request).execute()
-                    if (response.isSuccessful) {
-                        val json = org.json.JSONObject(response.body?.string() ?: "{}")
-                        json.optJSONArray("items") ?: org.json.JSONArray()
-                    } else org.json.JSONArray()
-                } catch (_: Exception) { org.json.JSONArray() }
+            val json = withContext(Dispatchers.IO) {
+                apiClient.getDynamics(category = filter.ifEmpty { null })
             }
+            val arr = json.optJSONArray("items") ?: org.json.JSONArray()
             val list = mutableListOf<UiDynamic>()
             for (i in 0 until arr.length()) {
                 val obj = arr.optJSONObject(i) ?: continue

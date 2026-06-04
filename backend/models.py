@@ -178,6 +178,7 @@ class Memory(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     content = Column(Text, nullable=False)
     encrypted_content = Column(Text, nullable=True)  # Fernet-encrypted sensitive content
+    content_hash = Column(String(32), nullable=True, index=True)  # md5 of normalized content for dedup
     memory_type = Column(String(32), nullable=False)     # short_term / long_term
     source_type = Column(String(32), nullable=False)     # chat / photo / inferred
     source_id = Column(String(128), nullable=True)       # conversation_id or photo_id

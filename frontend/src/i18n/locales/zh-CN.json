@@ -101,7 +101,12 @@
     "push_test_sent": "测试通知已发送",
     "excluded_apps": "排除的应用",
     "excluded_apps_desc": "排除列表在手机端设置",
-    "no_excluded_apps": "暂无排除的应用"
+    "no_excluded_apps": "暂无排除的应用",
+    "tab_general": "通用",
+    "tab_privacy": "隐私",
+    "tab_llm": "LLM 设置",
+    "tab_mcp": "MCP 服务器",
+    "tab_advanced": "高级"
   },
   "dynamic": {
     "title": "动态",

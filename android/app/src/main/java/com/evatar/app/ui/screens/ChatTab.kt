@@ -87,7 +87,7 @@ fun ChatTab(modifier: Modifier = Modifier) {
                 list.add(UiMessage(
                     role = obj.optString("role", "user"),
                     content = obj.optString("content", ""),
-                    toolCalls = obj.optString("tool_calls", null),
+                    toolCalls = if (obj.isNull("tool_calls")) null else obj.optString("tool_calls", ""),
                 ))
             }
             messages = list

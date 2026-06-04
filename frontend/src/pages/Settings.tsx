@@ -22,12 +22,12 @@ const PROVIDER_COLORS: Record<string, string> = {
   deepseek: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400 border-cyan-300 dark:border-cyan-700',
 };
 
-const tabItems: { key: SettingsTab; icon: string; label: string }[] = [
-  { key: 'general', icon: '⚙️', label: '通用' },
-  { key: 'privacy', icon: '🔒', label: '隐私' },
-  { key: 'llm', icon: '🤖', label: 'LLM 设置' },
-  { key: 'mcp', icon: '🔌', label: 'MCP 服务器' },
-  { key: 'advanced', icon: '🛠️', label: '高级' },
+const tabItems: { key: SettingsTab; icon: string; labelKey: string }[] = [
+  { key: 'general', icon: '⚙️', labelKey: 'settings.tab_general' },
+  { key: 'privacy', icon: '🔒', labelKey: 'settings.tab_privacy' },
+  { key: 'llm', icon: '🤖', labelKey: 'settings.tab_llm' },
+  { key: 'mcp', icon: '🔌', labelKey: 'settings.tab_mcp' },
+  { key: 'advanced', icon: '🛠️', labelKey: 'settings.tab_advanced' },
 ];
 
 export default function SettingsPage() {
@@ -51,7 +51,7 @@ export default function SettingsPage() {
             }`}
           >
             <span>{item.icon}</span>
-            <span className="hidden sm:inline">{item.label}</span>
+            <span className="hidden sm:inline">{t(item.labelKey)}</span>
           </button>
         ))}
       </div>

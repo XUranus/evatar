@@ -101,7 +101,12 @@
     "push_test_sent": "Test notification sent",
     "excluded_apps": "Excluded Apps",
     "excluded_apps_desc": "Exclusion list is configured on the phone",
-    "no_excluded_apps": "No excluded apps"
+    "no_excluded_apps": "No excluded apps",
+    "tab_general": "General",
+    "tab_privacy": "Privacy",
+    "tab_llm": "LLM Config",
+    "tab_mcp": "MCP Servers",
+    "tab_advanced": "Advanced"
   },
   "dynamic": {
     "title": "Dynamics",

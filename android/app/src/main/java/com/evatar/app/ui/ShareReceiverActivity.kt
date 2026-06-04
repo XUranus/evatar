@@ -63,9 +63,12 @@ class ShareReceiverActivity : ComponentActivity() {
                 }
 
                 val apiClient = ApiClient.getInstance(this@ShareReceiverActivity)
+                val deviceId = android.provider.Settings.Secure.getString(
+                    contentResolver, android.provider.Settings.Secure.ANDROID_ID
+                ) ?: "unknown_device"
                 val result = apiClient.uploadPhoto(
                     filePath = tempFile.absolutePath,
-                    deviceId = "shared_image",
+                    deviceId = deviceId,
                     localMediaStoreId = 0L,
                     displayName = tempFile.name,
                     timestamp = System.currentTimeMillis(),

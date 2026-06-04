@@ -27,6 +27,11 @@ async def process_photo(photo_id: int):
             logger.error(f"No analysis record for photo {photo_id}")
             return
 
+        # Idempotency: skip if already done
+        if analysis.status == AnalysisStatus.DONE:
+            logger.info(f"Photo {photo_id} already analyzed, skipping")
+            return
+
         photo = db.query(Photo).filter(Photo.id == photo_id).first()
         if not photo:
             logger.error(f"Photo {photo_id} not found")

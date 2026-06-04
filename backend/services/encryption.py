@@ -79,10 +79,10 @@ def decrypt_field(ciphertext: str | None) -> str | None:
         return f.decrypt(ciphertext.encode("utf-8")).decode("utf-8")
     except InvalidToken:
         logger.warning("Failed to decrypt field: invalid token or wrong key")
-        return ciphertext  # Return as-is if decryption fails (backward compat)
+        return "[encrypted: unable to decrypt]"
     except Exception as e:
         logger.warning(f"Decryption error: {e}")
-        return ciphertext
+        return "[encrypted: unable to decrypt]"
 
 
 def rotate_key(old_key: str, new_key: str) -> None:
@@ -91,6 +91,7 @@ def rotate_key(old_key: str, new_key: str) -> None:
     This is a utility for key rotation; callers must provide the old key
     and call this during a maintenance window.
     """
+    global _fernet, _enabled
     from models import SessionLocal, ChatMessage, Memory
     db = SessionLocal()
     try:
@@ -118,6 +119,19 @@ def rotate_key(old_key: str, new_key: str) -> None:
                     logger.warning(f"Could not rotate key for Memory {mem.id}")
 
         db.commit()
+
+        # Persist new key to key file
+        _KEY_FILE.write_text(new_key)
+        os.chmod(_KEY_FILE, 0o600)
+
+        # Reset in-memory state so next call re-initializes with the new key
+        _fernet = None
+        _enabled = None
+
         logger.info(f"Key rotation complete: {len(messages)} messages, {len(memories)} memories re-encrypted")
+    except Exception:
+        db.rollback()
+        logger.error("Key rotation failed, rolled back all changes", exc_info=True)
+        raise
     finally:
         db.close()

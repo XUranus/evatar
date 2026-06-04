@@ -18,6 +18,7 @@ RETENTION_INTERVAL = 86400    # 24 hours (daily)
 
 _running = False
 _task = None
+_lock = asyncio.Lock()
 
 
 async def _scheduler_loop():
@@ -68,27 +69,29 @@ async def _scheduler_loop():
         await asyncio.sleep(60)  # Check every minute
 
 
-def start_scheduler():
+async def start_scheduler():
     """Start the background scheduler."""
     global _task
-    if _task is not None:
-        return
-    _task = asyncio.create_task(_scheduler_loop())
-    logger.info("Scheduler task created")
+    async with _lock:
+        if _task is not None:
+            return
+        _task = asyncio.create_task(_scheduler_loop())
+        logger.info("Scheduler task created")
 
 
 async def stop_scheduler():
     """Stop the scheduler gracefully."""
     global _running, _task
-    _running = False
-    if _task:
-        _task.cancel()
-        try:
-            await _task
-        except asyncio.CancelledError:
-            pass
-        _task = None
-    logger.info("Scheduler stopped")
+    async with _lock:
+        _running = False
+        if _task:
+            _task.cancel()
+            try:
+                await _task
+            except asyncio.CancelledError:
+                pass
+            _task = None
+        logger.info("Scheduler stopped")
 
 
 async def trigger_reasoning_now(device_id: str = None) -> list[dict]:

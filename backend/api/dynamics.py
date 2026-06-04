@@ -45,6 +45,25 @@ def list_dynamics(
     }
 
 
+@router.get("/unread-count")
+def get_unread_count(device_id: str = None, db: Session = Depends(get_db)):
+    query = db.query(Dynamic).filter(Dynamic.is_read == False)
+    if device_id:
+        query = query.filter(Dynamic.device_id == device_id)
+    count = query.count()
+    return {"unread_count": count}
+
+
+@router.put("/read-all")
+def mark_all_read(device_id: str = None, db: Session = Depends(get_db)):
+    query = db.query(Dynamic).filter(Dynamic.is_read == False)
+    if device_id:
+        query = query.filter(Dynamic.device_id == device_id)
+    updated = query.update({Dynamic.is_read: True})
+    db.commit()
+    return {"message": f"Marked {updated} dynamics as read"}
+
+
 @router.get("/{dynamic_id}")
 def get_dynamic(dynamic_id: int, db: Session = Depends(get_db)):
     d = db.query(Dynamic).filter(Dynamic.id == dynamic_id).first()
