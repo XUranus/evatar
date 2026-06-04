@@ -158,6 +158,18 @@ async def run_reasoning_cycle(device_id: str = None) -> list[dict]:
         db.commit()
         logger.info(f"Generated {len(saved)} dynamics: {[s['title'] for s in saved]}")
 
+        # Extract memories from generated articles
+        if saved:
+            try:
+                from services.memory import extract_memories_from_text
+                articles_text = "\n\n".join(
+                    f"文章: {a.get('title', '')}\n摘要: {a.get('summary', '')}\n内容: {a.get('content', '')[:500]}"
+                    for a in articles[:3]
+                )
+                await extract_memories_from_text(articles_text, "inferred", "reasoner", device_id or "", db)
+            except Exception as e:
+                logger.warning(f"Memory extraction from articles failed: {e}")
+
         # Send push notification for new articles
         if saved and device_id:
             try:

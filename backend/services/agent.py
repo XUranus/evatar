@@ -14,25 +14,40 @@ from services.search import web_search
 
 logger = logging.getLogger("evatar.agent")
 
-SYSTEM_PROMPT = """你是 Evatar，一个智能个人助手。你拥有用户的手机截图知识库，包含用户的各种截图分析结果。
+SYSTEM_PROMPT = """你是 Evatar，一个智能个人助手。你拥有用户的手机截图知识库，包含用户截图的分析结果（聊天记录、网页、通知、金融信息等）。
 
 ## 工具使用策略
 
-### search_knowledge — 搜索截图知识库
-**关键：一次搜不到就换词再搜！**
-- 第一次搜索用核心关键词（如"股票"、"火车"）
-- 如果没结果，用同义词或更宽泛的词重试（如"股价"→"行情"→"金融"）
-- 也可以用关联词（如问出行→搜"火车""高铁""导航""12306"）
-- 用多个独立关键词分别搜索，不要把所有词拼在一起
+### search_knowledge — 单关键词搜索
+- 用核心关键词搜索（如"股票"、"火车"、"招标"）
+- 搜不到就换同义词重试（"股价"→"行情"→"金融"→"NVDA"）
+
+### search_multi — 多关键词同时搜索（推荐）
+- 一次传入多个相关关键词，自动合并去重
+- 适合用户问题涉及多个主题时使用
+- 例：问"出行"→ queries: ["火车", "高铁", "导航", "12306", "机票"]
+- 例：问"财务"→ queries: ["支付", "捐赠", "转账", "银行", "红包"]
+- 例：问"工作"→ queries: ["招标", "项目", "工程", "投标", "资质"]
+
+### get_recent — 获取最近截图（无需搜索词）
+- 返回最近N条截图分析结果
+- 适合"我最近截了什么"、"帮我整理最近的内容"等宽泛问题
 
 ### web_search — 搜索互联网
-- 需要实时信息、新闻、股价等使用
+- 需要实时信息、新闻等使用
+
+## 搜索策略
+1. 用户问题具体 → search_knowledge 用核心词
+2. 用户问题宽泛 → search_multi 用多个相关词
+3. 用户问"最近" → get_recent 先看近期内容
+4. 第一次搜不到 → 换词重试，不要直接说"没找到"
+5. 找到部分信息 → 告诉用户找到了什么，即使不完全匹配
 
 ## 回答风格
 - 用中文回答，简洁有条理
-- 用表格整理结构化数据
+- 用Markdown表格整理结构化数据
 - 引用截图中的具体信息（时间、金额、人名等）
-- 如果知识库有相关信息但不完全匹配，也要告诉用户找到了什么"""
+- 如果找到了相关信息，一定要展示出来"""
 
 TOOLS = [
     {
@@ -62,6 +77,19 @@ TOOLS = [
                     }
                 },
                 "required": ["queries"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_recent",
+            "description": "获取用户最近的截图分析结果，无需搜索词。适合宽泛问题。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "limit": {"type": "integer", "description": "返回数量，默认10"}
+                }
             }
         }
     },
@@ -198,6 +226,11 @@ async def _execute_tool(name: str, args: dict, db: Session) -> dict:
                     seen_ids.add(rid)
                     all_results.append(r)
         return {"tool": "search_multi", "queries": queries, "count": len(all_results), "results": all_results[:12]}
+    elif name == "get_recent":
+        from services.rag import get_recent_analyses
+        limit = min(args.get("limit", 10), 20)
+        results = get_recent_analyses(db, limit=limit)
+        return {"tool": "get_recent", "count": len(results), "results": results}
     elif name == "web_search":
         results = await web_search(args.get("query", ""), num_results=5)
         return {"tool": "web_search", "query": args.get("query"), "results": results}

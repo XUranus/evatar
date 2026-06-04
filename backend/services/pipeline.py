@@ -105,11 +105,36 @@ async def process_photo(photo_id: int):
         db.close()
 
 
+_analysis_counter = 0
+_REASONING_TRIGGER_EVERY = 3  # Trigger reasoning after every N new analyses
+
+
 def enqueue_analysis(photo_id: int):
     """Schedule async LLM analysis with proper task tracking."""
     task = asyncio.create_task(_safe_process(photo_id))
     _running_tasks.add(task)
-    task.add_done_callback(_running_tasks.discard)
+    task.add_done_callback(_on_analysis_done)
+
+
+def _on_analysis_done(task: asyncio.Task):
+    """Callback when an analysis completes. Triggers reasoning periodically."""
+    _running_tasks.discard(task)
+    global _analysis_counter
+    _analysis_counter += 1
+    if _analysis_counter >= _REASONING_TRIGGER_EVERY:
+        _analysis_counter = 0
+        asyncio.create_task(_trigger_reasoning())
+
+
+async def _trigger_reasoning():
+    """Trigger reasoning cycle after a batch of new analyses."""
+    try:
+        from services.reasoner import run_reasoning_cycle
+        logger.info("Auto-triggering reasoning after new analyses")
+        results = await run_reasoning_cycle()
+        logger.info(f"Auto-reasoning produced {len(results)} articles")
+    except Exception as e:
+        logger.warning(f"Auto-reasoning failed: {e}")
 
 
 _UNRECOVERABLE = (FileNotFoundError, PermissionError, ValueError)

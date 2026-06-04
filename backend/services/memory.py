@@ -15,24 +15,29 @@ from services.encryption import is_encryption_enabled, encrypt_field
 
 logger = logging.getLogger("evatar.memory")
 
-MEMORY_EXTRACT_PROMPT = """分析以下对话内容，提取值得记住的信息。返回JSON数组。
+MEMORY_EXTRACT_PROMPT = """从以下内容中提取值得记住的信息。尽可能多提取，不要遗漏。返回JSON数组。
 
 每个记忆条目：
 {
-  "content": "记忆内容，简洁明确",
-  "category": "preference(偏好) / fact(事实) / schedule(日程) / interest(兴趣) / habit(习惯)",
+  "content": "记忆内容，简洁明确，包含关键细节（人名、时间、金额、地点）",
+  "category": "preference(偏好) / fact(事实) / schedule(日程) / interest(兴趣) / habit(习惯) / people(人物关系) / project(项目) / finance(财务)",
   "memory_type": "short_term(48小时内有效) / long_term(长期保留)",
   "importance": 0.0到1.0
 }
 
-规则：
-- 只提取对理解用户有价值的信息
-- 用户明确的偏好、习惯、重要日期 → long_term
-- 临时话题、当前讨论内容 → short_term
-- 无意义的寒暄、重复内容 → 不提取
-- 返回空数组 [] 如果没有值得记忆的内容
+提取规则（尽量多提取）：
+- 人名、联系方式、公司名称 → long_term, category=people
+- 项目名称、招标信息、资质要求 → long_term, category=project
+- 金额、支付、捐赠 → long_term, category=finance
+- 日期、行程、截止时间 → long_term, category=schedule
+- 用户偏好、习惯 → long_term, category=preference
+- 当前讨论的话题 → short_term
+- 截图中的关键事实 → long_term, category=fact
+- 只有纯寒暄（你好/谢谢）才不提取
 
-只返回JSON数组，不要返回其他内容。"""
+返回空数组 [] 仅当内容完全无信息价值。
+
+只返回JSON数组。"""
 
 
 async def extract_memories_from_text(
@@ -46,8 +51,8 @@ async def extract_memories_from_text(
     try:
         result = await call_llm([
             {"role": "system", "content": MEMORY_EXTRACT_PROMPT},
-            {"role": "user", "content": text[:4000]},
-        ], temperature=0.2, max_tokens=1024)
+            {"role": "user", "content": text[:6000]},
+        ], temperature=0.2, max_tokens=2048)
 
         content = strip_code_fences(result["content"])
         entries = json.loads(content)

@@ -11,32 +11,37 @@ from config import settings
 logger = logging.getLogger("evatar.llm")
 
 
-SYSTEM_PROMPT = """你是一个截图分析助手。用户会给你手机截图，你需要分析截图内容并返回结构化信息。
+SYSTEM_PROMPT = """你是一个截图分析助手。分析手机截图内容，返回结构化JSON。
 
-请严格按以下JSON格式返回，不要返回其他内容：
+严格按此JSON格式返回，不要返回其他内容：
 {
-  "app_name": "截图来自的应用名称",
+  "app_name": "应用名称（微信/支付宝/12306/高德地图/抖音等）",
   "content_category": "chat / webpage / notification / social_media / finance / education / shopping / entertainment / tool / other",
   "intent": "reminder / research / reference / note / ignore",
   "relevance": "high / medium / low",
-  "summary": "用中文简洁总结截图内容，2-3句话",
-  "entities": [{"type": "类型", "value": "具体值"}],
+  "summary": "用中文总结截图核心内容，2-3句话，包含关键细节",
+  "entities": [
+    {"type": "人名/公司/金额/日期/时间/地点/车次/航班/电话/链接/股票/项目/其他", "value": "具体值"}
+  ],
   "confidence": 0.0到1.0
 }
 
 分析规则：
 1. 包含明确时间/日期/截止时间 → intent=reminder
-2. 知识/教程/研报 → intent=research 或 reference
-3. 普通聊天或无意义内容 → intent=ignore
-4. entities只提取有实际意义的信息
-5. 如果截图是锁屏、桌面壁纸、广告、应用商店推荐等无信息内容，relevance设为low，intent设为ignore，confidence设为0.2以下
+2. 知识/教程/研报/招标文件 → intent=research 或 reference
+3. 聊天记录中有人名和具体内容 → intent=reference，entities提取人名
+4. 支付/转账/捐赠 → intent=reference，entities提取金额和对方
+5. 锁屏、桌面壁纸、广告、无意义截图 → relevance=low, intent=ignore, confidence<0.2
 
-不同类型截图的分析指导：
-- 聊天截图(chat)：提取对话主题、关键人物、重要约定
-- 金融截图(finance)：提取金额、账户、交易类型
-- 通知截图(notification)：提取通知来源、关键提醒
-- 网页截图(webpage)：提取文章主题、关键信息、URL
-- 社交媒体(social_media)：提取发布者、话题、互动内容"""
+entities提取要求（尽量多提取）：
+- 所有人名（联系人、发送者、乘车人）
+- 所有金额（价格、支付金额、工资）
+- 所有日期时间
+- 所有地点、地址
+- 所有电话号码
+- 所有股票代码/名称
+- 所有项目名称
+- 所有车次/航班号"""
 
 
 def _get_llm_config() -> dict:

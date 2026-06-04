@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     llm_temperature: float = 0.1
 
     # Agent
-    agent_max_rounds: int = 5
+    agent_max_rounds: int = 3       # Reduced from 5 for faster responses
     agent_history_limit: int = 20
 
     # Web search (optional)
