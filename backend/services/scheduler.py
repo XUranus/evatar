@@ -25,9 +25,10 @@ async def _scheduler_loop():
     """Main scheduler loop."""
     global _running
     _running = True
-    last_reasoning = datetime.min.replace(tzinfo=None)
-    last_decay = datetime.min.replace(tzinfo=None)
-    last_retention = datetime.min.replace(tzinfo=None)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    last_reasoning = now
+    last_decay = now
+    last_retention = now
 
     logger.info("Scheduler started")
     while _running:

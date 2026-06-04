@@ -38,7 +38,7 @@ async def process_photo(photo_id: int):
             return
 
         analysis.status = AnalysisStatus.PROCESSING
-        db.commit()
+        db.flush()
 
         from services.llm import call_llm, encode_image_base64, SYSTEM_PROMPT
 
@@ -86,11 +86,16 @@ async def process_photo(photo_id: int):
         if relevance == "low" and confidence < 0.3:
             logger.info(f"Skipping low-relevance screenshot {photo_id}")
         else:
-            # Extract memories from the analysis
+            # Extract memories from the analysis (use separate session to avoid
+            # interfering with the main analysis transaction)
             try:
                 from services.memory import extract_memories_from_text
                 mem_text = f"截图应用:{parsed.get('app_name','')} 分类:{parsed.get('content_category','')} 摘要:{parsed.get('summary','')} 实体:{parsed.get('entities','')}"
-                await extract_memories_from_text(mem_text, "photo", str(photo_id), photo.device_id or "", db)
+                mem_db = SessionLocal()
+                try:
+                    await extract_memories_from_text(mem_text, "photo", str(photo_id), photo.device_id or "", mem_db)
+                finally:
+                    mem_db.close()
             except Exception as me:
                 logger.warning(f"Memory extraction from photo failed: {me}")
 

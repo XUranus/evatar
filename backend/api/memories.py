@@ -35,7 +35,7 @@ def list_memories(
         "page_size": page_size,
         "items": [
             {
-                "id": m.id, "content": m.content, "memory_type": m.memory_type,
+                "id": m.id, "content": m.display_content, "memory_type": m.memory_type,
                 "source_type": m.source_type, "category": m.category,
                 "importance": m.importance, "access_count": m.access_count,
                 "created_at": m.created_at.isoformat() if m.created_at else None,

@@ -77,9 +77,13 @@ def _build_fts_index(db: Session):
     # Use a separate session to avoid flushing the caller's pending changes
     rebuild_db = SessionLocal()
     try:
-        rebuild_db.execute(text("DROP TABLE IF EXISTS analysis_fts"))
+        try:
+            rebuild_db.execute(text("DROP TABLE IF EXISTS analysis_fts"))
+        except Exception:
+            rebuild_db.rollback()
+            logger.debug("FTS table did not exist, creating fresh")
         rebuild_db.execute(text("""
-            CREATE VIRTUAL TABLE analysis_fts USING fts5(
+            CREATE VIRTUAL TABLE IF NOT EXISTS analysis_fts USING fts5(
                 summary, app_name, content_category, intent, entities,
                 content='analyses', content_rowid='id'
             )

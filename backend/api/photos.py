@@ -6,6 +6,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc, case
+from sqlalchemy.exc import IntegrityError
 import os
 
 logger = logging.getLogger("evatar.photos")
@@ -66,7 +67,19 @@ def _save_upload(
         original_timestamp=ts,
     )
     db.add(photo)
-    db.flush()
+
+    try:
+        db.flush()
+    except IntegrityError:
+        # Race condition: another request inserted the same photo concurrently
+        db.rollback()
+        existing = db.query(Photo).filter(
+            Photo.device_id == device_id,
+            Photo.local_media_store_id == local_media_store_id,
+        ).first()
+        if existing:
+            return {"id": existing.id, "filename": existing.filename, "dedup": True}
+        raise
 
     analysis = Analysis(photo_id=photo.id, status=AnalysisStatus.PENDING)
     db.add(analysis)
@@ -126,6 +139,7 @@ async def upload_photo(
     mime_type: str = Form(default="image/jpeg"),
     db: Session = Depends(get_db),
 ):
+    """Upload a single photo. Max file size: 50MB. File is read into memory."""
     file_bytes = await file.read()
     if not file_bytes:
         raise HTTPException(status_code=400, detail="Empty file")
@@ -148,6 +162,9 @@ async def upload_batch(
     mime_types: str = Form(default=""),
     db: Session = Depends(get_db),
 ):
+    if len(files) > 50:
+        raise HTTPException(status_code=400, detail="Max 50 files per batch")
+
     ts_list = timestamps.split(",") if timestamps else []
     id_list = local_ids.split(",") if local_ids else []
     mime_list = mime_types.split(",") if mime_types else []

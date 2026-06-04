@@ -26,7 +26,18 @@ logger = logging.getLogger("evatar")
 async def lifespan(app: FastAPI):
     logger.info("Starting Evatar backend...")
     if not settings.api_key:
-        logger.warning("⚠️  API key not set! All endpoints are unauthenticated. Set EVATAR_API_KEY for production.")
+        if not settings.dev_mode:
+            logger.critical(
+                "\n"
+                "╔══════════════════════════════════════════════════════════════╗\n"
+                "║  SECURITY WARNING: EVATAR_API_KEY is not set!              ║\n"
+                "║  Running in PRODUCTION mode without authentication.        ║\n"
+                "║  All endpoints are publicly accessible.                    ║\n"
+                "║  Set EVATAR_API_KEY immediately or set EVATAR_DEV_MODE=true ║\n"
+                "╚══════════════════════════════════════════════════════════════╝"
+            )
+        else:
+            logger.warning("API key not set! Endpoints are unauthenticated. Set EVATAR_API_KEY for production.")
     init_db()
     logger.info(f"Database initialized at {settings.db_path}")
     logger.info(f"LLM: {settings.llm_base_url}, model: {settings.llm_model}")
@@ -39,6 +50,8 @@ async def lifespan(app: FastAPI):
     yield
 
     await stop_scheduler()
+    from services.llm import close_client
+    await close_client()
     logger.info("Shutting down Evatar backend...")
 
 
@@ -49,11 +62,16 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+_DEFAULT_CORS = ["http://localhost:3000", "http://localhost:5173", "http://localhost:8000"]
+_cors_origins = (
+    [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
+    if settings.cors_origins
+    else _DEFAULT_CORS
+)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000", "http://localhost:5173", "http://localhost:8000",
-    ],
+    allow_origins=_cors_origins,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],

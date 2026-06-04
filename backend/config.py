@@ -12,6 +12,7 @@ class Settings(BaseSettings):
 
     # Auth
     api_key: str = ""  # Set via EVATAR_API_KEY env var; empty = no auth (dev only)
+    dev_mode: bool = True  # Set EVATAR_DEV_MODE=false for production
 
     # Storage
     data_dir: Path = BASE_DIR / "data"
@@ -36,6 +37,9 @@ class Settings(BaseSettings):
 
     # Encryption (optional - auto-generates key if not set)
     encryption_key: str = ""
+
+    # CORS (comma-separated origins; empty = localhost defaults)
+    cors_origins: str = ""
 
     # Data retention
     retention_days: int = 30

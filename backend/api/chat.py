@@ -191,7 +191,7 @@ async def get_messages(
 
     messages = query.all()
     return {"messages": [
-        {"id": m.id, "role": m.role, "content": m.content,
+        {"id": m.id, "role": m.role, "content": m.display_content,
          "tool_name": m.tool_name, "tool_calls": m.tool_calls,
          "created_at": m.created_at.isoformat() if m.created_at else None}
         for m in messages

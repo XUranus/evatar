@@ -1,4 +1,6 @@
 import re
+import ipaddress
+import urllib.parse
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -10,6 +12,9 @@ _PRIVATE_HOST = re.compile(
     r'(localhost|127\.0\.0\.1|0\.0\.0\.0|169\.254\.\d+\.\d+|'
     r'10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)'
 )
+
+_PRIVATE_IPV6_PREFIXES = ("::1", "fe80:", "fc00:", "fd", "::ffff:")
+_PRIVATE_IPV4_MAPPED = re.compile(r'::ffff:(\d+\.\d+\.\d+\.\d+)')
 
 router = APIRouter(prefix="/api/config", tags=["config"])
 
@@ -57,11 +62,36 @@ def get_llm_config(db: Session = Depends(get_db)):
 
 
 def _validate_base_url(url: str):
-    """Reject SSRF-prone URLs."""
+    """Reject SSRF-prone URLs. Raises HTTPException if the URL targets a private/loopback address."""
     if not url.startswith("https://"):
         raise HTTPException(status_code=400, detail="base_url must use https://")
-    if _PRIVATE_HOST.search(url):
+
+    parsed = urllib.parse.urlparse(url)
+    hostname = parsed.hostname or ""
+
+    # Check IPv4-style private hosts via regex (covers hostname in full URL)
+    if _PRIVATE_HOST.search(hostname):
         raise HTTPException(status_code=400, detail="base_url must not point to a private/localhost address")
+
+    # Check IPv6 private ranges
+    hostname_lower = hostname.lower()
+    for prefix in _PRIVATE_IPV6_PREFIXES:
+        if hostname_lower.startswith(prefix):
+            # For ::ffff: mapped IPv4, extract and validate the IPv4 part
+            m = _PRIVATE_IPV4_MAPPED.match(hostname_lower)
+            if m and _PRIVATE_HOST.search(m.group(1)):
+                raise HTTPException(status_code=400, detail="base_url must not point to a private/localhost address (IPv4-mapped IPv6)")
+            if not m:
+                raise HTTPException(status_code=400, detail="base_url must not point to a private/localhost address")
+
+    # Validate with ipaddress module for bracketed IPv6 URLs like https://[::1]/...
+    clean_host = hostname.strip("[]")
+    try:
+        addr = ipaddress.ip_address(clean_host)
+        if addr.is_private or addr.is_loopback or addr.is_link_local:
+            raise HTTPException(status_code=400, detail="base_url must not point to a private/localhost address")
+    except ValueError:
+        pass  # Not an IP address literal, hostname check above is sufficient
 
 
 @router.put("/llm")

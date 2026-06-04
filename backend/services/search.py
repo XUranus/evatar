@@ -29,11 +29,11 @@ async def _tavily_search(query: str, max_results: int = 5) -> list[dict]:
             resp = await client.post(
                 "https://api.tavily.com/search",
                 json={
-                    "api_key": settings.tavily_api_key,
                     "query": query,
                     "max_results": max_results,
                     "search_depth": "basic",
                 },
+                headers={"Authorization": f"Bearer {settings.tavily_api_key}"},
             )
             resp.raise_for_status()
             data = resp.json()

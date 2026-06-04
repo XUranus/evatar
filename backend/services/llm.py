@@ -10,6 +10,24 @@ from config import settings
 
 logger = logging.getLogger("evatar.llm")
 
+# Module-level reusable async HTTP client (avoids per-request TCP/TLS overhead)
+_client: httpx.AsyncClient | None = None
+
+
+def _get_client() -> httpx.AsyncClient:
+    global _client
+    if _client is None or _client.is_closed:
+        _client = httpx.AsyncClient(timeout=180.0)
+    return _client
+
+
+async def close_client():
+    """Shutdown hook: close the shared HTTP client."""
+    global _client
+    if _client is not None and not _client.is_closed:
+        await _client.aclose()
+        _client = None
+
 
 SYSTEM_PROMPT = """你是一个截图分析助手。分析手机截图内容，返回结构化JSON。
 
@@ -93,21 +111,21 @@ async def call_llm(
 
     logger.info(f"LLM call: model={llm['model']}, msgs={len(messages)}")
 
-    async with httpx.AsyncClient(timeout=180.0) as client:
-        resp = await client.post(
-            f"{llm['base_url']}/chat/completions",
-            json=payload,
-            headers={
-                "Authorization": f"Bearer {llm['api_key']}",
-                "Content-Type": "application/json",
-            },
-        )
-        try:
-            resp.raise_for_status()
-        except httpx.HTTPStatusError as e:
-            logger.error(f"LLM API error: {e.response.status_code} - {e.response.text[:500]}")
-            raise
-        data = resp.json()
+    client = _get_client()
+    resp = await client.post(
+        f"{llm['base_url']}/chat/completions",
+        json=payload,
+        headers={
+            "Authorization": f"Bearer {llm['api_key']}",
+            "Content-Type": "application/json",
+        },
+    )
+    try:
+        resp.raise_for_status()
+    except httpx.HTTPStatusError as e:
+        logger.error(f"LLM API error: {e.response.status_code} - {e.response.text[:500]}")
+        raise
+    data = resp.json()
 
     message = data["choices"][0]["message"]
     content = message.get("content") or message.get("reasoning_content") or ""

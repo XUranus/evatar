@@ -32,7 +32,11 @@ def _get_or_create_key() -> str:
     _KEY_FILE.parent.mkdir(parents=True, exist_ok=True)
     _KEY_FILE.write_text(key)
     os.chmod(_KEY_FILE, 0o600)
-    logger.info("Generated and stored new encryption key")
+    logger.warning(
+        "⚠️ Auto-generated encryption key stored at %s. "
+        "Set EVATAR_ENCRYPTION_KEY environment variable for production.",
+        _KEY_FILE,
+    )
     return key
 
 

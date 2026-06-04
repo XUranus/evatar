@@ -109,7 +109,7 @@ async def run_reasoning_cycle(device_id: str = None) -> list[dict]:
         if recent_chats:
             context_parts.append("\n## 用户近期聊天")
             for msg in recent_chats:
-                context_parts.append(f"- {msg.content[:200]}")
+                context_parts.append(f"- {msg.display_content[:200]}")
 
         if memories_context:
             context_parts.append(f"\n{memories_context}")

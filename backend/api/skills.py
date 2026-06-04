@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from models import get_db, Skill, MCPServer
+from api.config import _validate_base_url
 
 router = APIRouter(prefix="/api", tags=["skills"])
 
@@ -104,6 +105,7 @@ def list_mcp_servers(db: Session = Depends(get_db)):
 
 @router.post("/mcp-servers")
 def create_mcp_server(body: MCPServerCreate, db: Session = Depends(get_db)):
+    _validate_base_url(body.url)
     existing = db.query(MCPServer).filter(MCPServer.id == body.id).first()
     if existing:
         raise HTTPException(status_code=409, detail=f"MCP server '{body.id}' already exists")

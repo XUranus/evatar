@@ -16,6 +16,7 @@ logger = logging.getLogger("evatar.agent")
 
 # Track background memory extraction tasks to prevent fire-and-forget
 _memory_tasks: set[asyncio.Task] = set()
+_memory_semaphore = asyncio.Semaphore(2)
 
 SYSTEM_PROMPT = """你是 Evatar，一个智能个人助手。你拥有用户的手机截图知识库，包含用户截图的分析结果（聊天记录、网页、通知、金融信息等）。
 
@@ -254,7 +255,7 @@ def _build_history(db: Session, conversation_id: str) -> list[dict]:
 
     history = []
     for msg in messages:
-        entry: dict = {"role": msg.role, "content": msg.content or ""}
+        entry: dict = {"role": msg.role, "content": msg.display_content or ""}
         if msg.role == "assistant" and msg.tool_calls:
             entry["tool_calls"] = json.loads(msg.tool_calls)
         if msg.role == "tool" and msg.tool_call_id:
@@ -268,10 +269,11 @@ async def _extract_memories_async(text: str, conversation_id: str, device_id: st
     """Background task for memory extraction with its own DB session."""
     from models import SessionLocal as _SessionLocal
     from services.memory import extract_memories_from_text
-    db = _SessionLocal()
-    try:
-        await extract_memories_from_text(text, "chat", conversation_id, device_id, db)
-    except Exception as e:
-        logger.warning(f"Background memory extraction failed: {e}")
-    finally:
-        db.close()
+    async with _memory_semaphore:
+        db = _SessionLocal()
+        try:
+            await extract_memories_from_text(text, "chat", conversation_id, device_id, db)
+        except Exception as e:
+            logger.warning(f"Background memory extraction failed: {e}")
+        finally:
+            db.close()
