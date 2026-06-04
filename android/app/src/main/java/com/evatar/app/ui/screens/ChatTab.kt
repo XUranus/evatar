@@ -1,8 +1,6 @@
 package com.evatar.app.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -13,40 +11,31 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.evatar.app.network.ApiClient
+import com.evatar.app.ui.theme.EvatarColors
+import com.evatar.app.ui.theme.EvatarTypography
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 
-data class UiMessage(
-    val role: String,
-    val content: String,
-    val toolCalls: String? = null,
-)
-
-data class UiConversation(
-    val id: String,
-    val title: String,
-    val lastMessage: String,
-)
+data class UiConversation(val id: String, val title: String, val lastMessage: String, val messageCount: Int)
+data class UiMessage(val role: String, val content: String, val toolCalls: String? = null)
 
 @Composable
 fun ChatTab(modifier: Modifier = Modifier) {
@@ -59,8 +48,8 @@ fun ChatTab(modifier: Modifier = Modifier) {
     var messages by remember { mutableStateOf(listOf<UiMessage>()) }
     var input by remember { mutableStateOf("") }
     var sending by remember { mutableStateOf(false) }
+    var lastFailedMessage by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
-    var showConvList by remember { mutableStateOf(true) }
 
     fun loadConversations() {
         scope.launch {
@@ -72,6 +61,7 @@ fun ChatTab(modifier: Modifier = Modifier) {
                     id = obj.optString("id"),
                     title = obj.optString("title", "新对话"),
                     lastMessage = obj.optString("last_message", ""),
+                    messageCount = obj.optInt("message_count", 0),
                 ))
             }
             conversations = list
@@ -87,20 +77,12 @@ fun ChatTab(modifier: Modifier = Modifier) {
                 list.add(UiMessage(
                     role = obj.optString("role", "user"),
                     content = obj.optString("content", ""),
-                    toolCalls = if (obj.isNull("tool_calls")) null else obj.optString("tool_calls", ""),
+                    toolCalls = if (obj.has("tool_calls") && !obj.isNull("tool_calls")) obj.optString("tool_calls") else null,
                 ))
             }
             messages = list
         }
     }
-
-    LaunchedEffect(Unit) { loadConversations() }
-
-    LaunchedEffect(messages.size) {
-        if (messages.isNotEmpty()) listState.animateScrollToItem(messages.size - 1)
-    }
-
-    var lastFailedMessage by remember { mutableStateOf<String?>(null) }
 
     fun doSend(text: String) {
         sending = true
@@ -116,295 +98,360 @@ fun ChatTab(modifier: Modifier = Modifier) {
                     messages = messages + UiMessage(
                         role = "assistant",
                         content = msg.optString("content", ""),
-                        toolCalls = msg.optJSONArray("tool_calls")?.toString(),
+                        toolCalls = if (msg.has("tool_calls") && !msg.isNull("tool_calls")) msg.optString("tool_calls") else null,
                     )
                 }
                 loadConversations()
             } else {
                 lastFailedMessage = text
-                messages = messages + UiMessage("assistant", "❌ 发送失败\n${result.errorMessage}")
+                messages = messages + UiMessage("assistant", "发送失败: ${result.errorMessage}")
             }
             sending = false
         }
     }
 
-    fun sendMessage() {
-        val text = input.trim()
-        if (text.isEmpty() || sending) return
-        input = ""
-        doSend(text)
-    }
+    LaunchedEffect(Unit) { loadConversations() }
+    LaunchedEffect(messages.size) { if (messages.isNotEmpty()) listState.animateScrollToItem(messages.size - 1) }
 
-    Box(modifier = modifier.fillMaxSize()) {
-        // Conversation list panel
-        AnimatedVisibility(
-            visible = showConvList && activeConvId == null,
-            enter = slideInHorizontally(),
-            exit = slideOutHorizontally(),
-        ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                // Header
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("对话列表", fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                    IconButton(onClick = {
-                        activeConvId = null
-                        messages = listOf(UiMessage("assistant", "你好！我是 Evatar AI 助手。\n\n🔍 搜索截图知识库\n🌐 搜索互联网\n\n试试问我什么吧！"))
-                        showConvList = false
-                    }) {
-                        Icon(Icons.Default.Add, contentDescription = "新对话")
-                    }
+    if (activeConvId == null) {
+        // Conversation list
+        ConversationList(
+            conversations = conversations,
+            onSelect = { activeConvId = it.id; loadMessages(it.id) },
+            onNew = {
+                activeConvId = null
+                messages = listOf(UiMessage("assistant", "你好！我是 Evatar AI 助手。\n\n搜索截图知识库、搜索互联网、上传图片分析"))
+            },
+            onDelete = { conv ->
+                scope.launch {
+                    withContext(Dispatchers.IO) { apiClient.deleteConversation(conv.id) }
+                    loadConversations()
                 }
+            },
+            modifier = modifier,
+        )
+    } else {
+        // Chat view
+        ChatView(
+            messages = messages,
+            input = input,
+            onInputChange = { input = it },
+            onSend = {
+                val text = input.trim()
+                if (text.isNotEmpty() && !sending) { input = ""; doSend(text) }
+            },
+            sending = sending,
+            lastFailedMessage = lastFailedMessage,
+            onRetry = { lastFailedMessage?.let { doSend(it) } },
+            onBack = { activeConvId = null; messages = emptyList(); loadConversations() },
+            onNewChat = {
+                activeConvId = null
+                messages = listOf(UiMessage("assistant", "新对话已开始，请输入你的问题。"))
+            },
+            modifier = modifier,
+        )
+    }
+}
 
-                if (conversations.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("暂无对话，点击右上角 + 创建", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                } else {
-                    LazyColumn(modifier = Modifier.fillMaxSize()) {
-                        items(conversations, key = { it.id }) { conv ->
-                            ConversationItem(
-                                conv = conv,
-                                onClick = {
-                                    activeConvId = conv.id
-                                    loadMessages(conv.id)
-                                    showConvList = false
-                                },
-                                onDelete = {
-                                    scope.launch {
-                                        withContext(Dispatchers.IO) { apiClient.deleteConversation(conv.id) }
-                                        loadConversations()
-                                        if (activeConvId == conv.id) {
-                                            activeConvId = null
-                                            messages = emptyList()
-                                        }
-                                    }
-                                }
-                            )
-                        }
-                    }
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ConversationList(
+    conversations: List<UiConversation>,
+    onSelect: (UiConversation) -> Unit,
+    onNew: () -> Unit,
+    onDelete: (UiConversation) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxSize()) {
+        // Header
+        Text(
+            "AI 助手",
+            style = EvatarTypography.largeTitle,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 8.dp)
+        )
+
+        if (conversations.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("💬", fontSize = 48.sp)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("暂无对话", style = EvatarTypography.headline, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("点击右上角 + 开始新对话", style = EvatarTypography.subheadline, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        } else {
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                items(conversations, key = { it.id }) { conv ->
+                    ConversationRow(
+                        conversation = conv,
+                        onClick = { onSelect(conv) },
+                        onDelete = { onDelete(conv) },
+                    )
                 }
             }
         }
+    }
 
-        // Chat view
-        AnimatedVisibility(
-            visible = !showConvList || activeConvId != null,
-            enter = slideInHorizontally(initialOffsetX = { it }),
-            exit = slideOutHorizontally(targetOffsetX = { it }),
+    // FAB
+    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.BottomEnd) {
+        FloatingActionButton(
+            onClick = onNew,
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = Color.White,
+            shape = CircleShape,
+            modifier = Modifier.padding(20.dp).size(56.dp),
         ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                // Chat header
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    TextButton(onClick = {
-                        activeConvId = null
-                        messages = emptyList()
-                        showConvList = true
-                        loadConversations()
-                    }) { Text("← 返回") }
-
-                    Spacer(modifier = Modifier.weight(1f))
-
-                    TextButton(onClick = {
-                        activeConvId = null
-                        messages = listOf(UiMessage("assistant", "新对话已开始，请输入你的问题。"))
-                    }) { Text("新对话") }
-                }
-
-                // Messages
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(vertical = 8.dp)
-                ) {
-                    items(messages) { msg -> ChatBubble(msg) }
-                    if (sending) {
-                        item {
-                            Row {
-                                Box(
-                                    modifier = Modifier
-                                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(16.dp, 16.dp, 16.dp, 4.dp))
-                                        .padding(horizontal = 16.dp, vertical = 12.dp)
-                                ) { TypingDots() }
-                            }
-                        }
-                    }
-                }
-
-                // Retry bar
-                if (lastFailedMessage != null && !sending) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.errorContainer,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("发送失败", fontSize = 13.sp, color = MaterialTheme.colorScheme.error, modifier = Modifier.weight(1f))
-                            TextButton(onClick = {
-                                lastFailedMessage?.let { retry ->
-                                    lastFailedMessage = null
-                                    doSend(retry)
-                                }
-                            }) { Text("重试", fontSize = 13.sp) }
-                            TextButton(onClick = { lastFailedMessage = null }) { Text("取消", fontSize = 13.sp) }
-                        }
-                    }
-                }
-
-                // Input
-                Surface(tonalElevation = 2.dp) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedTextField(
-                            value = input,
-                            onValueChange = { input = it },
-                            modifier = Modifier.weight(1f),
-                            placeholder = { Text("输入消息...", fontSize = 14.sp) },
-                            maxLines = 4,
-                            shape = RoundedCornerShape(24.dp),
-                        )
-                        FilledIconButton(
-                            onClick = { sendMessage() },
-                            enabled = input.isNotBlank() && !sending,
-                            modifier = Modifier.size(48.dp)
-                        ) { Icon(Icons.Default.Send, contentDescription = "发送") }
-                    }
-                }
-            }
+            Icon(Icons.Filled.Add, contentDescription = "新对话", modifier = Modifier.size(24.dp))
         }
     }
 }
 
 @Composable
-fun ConversationItem(conv: UiConversation, onClick: () -> Unit, onDelete: () -> Unit) {
-    var showDeleteConfirm by remember { mutableStateOf(false) }
+private fun ConversationRow(conversation: UiConversation, onClick: () -> Unit, onDelete: () -> Unit) {
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
-    if (showDeleteConfirm) {
+    if (showDeleteDialog) {
         AlertDialog(
-            onDismissRequest = { showDeleteConfirm = false },
+            onDismissRequest = { showDeleteDialog = false },
             title = { Text("删除对话") },
-            text = { Text("确定删除「${conv.title}」？") },
+            text = { Text("确定删除「${conversation.title}」？") },
             confirmButton = {
-                TextButton(onClick = { showDeleteConfirm = false; onDelete() }) { Text("删除", color = MaterialTheme.colorScheme.error) }
+                TextButton(onClick = { showDeleteDialog = false; onDelete() }) {
+                    Text("删除", color = EvatarColors.LightError)
+                }
             },
-            dismissButton = { TextButton(onClick = { showDeleteConfirm = false }) { Text("取消") } }
+            dismissButton = { TextButton(onClick = { showDeleteDialog = false }) { Text("取消") } },
         )
     }
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
+    Surface(
+        modifier = Modifier.fillMaxWidth().clickable { onClick() },
+        color = MaterialTheme.colorScheme.surface,
     ) {
-        // Avatar
-        Box(
-            modifier = Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer),
-            contentAlignment = Alignment.Center
-        ) { Text("E", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary) }
+        Row(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // Avatar
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("E", style = EvatarTypography.headline, color = MaterialTheme.colorScheme.primary)
+            }
 
-        Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(14.dp))
 
-        Column(modifier = Modifier.weight(1f)) {
-            Text(conv.title, fontWeight = FontWeight.Medium, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (conv.lastMessage.isNotEmpty()) {
-                Text(conv.lastMessage, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    conversation.title,
+                    style = EvatarTypography.headline,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (conversation.lastMessage.isNotEmpty()) {
+                    Text(
+                        conversation.lastMessage,
+                        style = EvatarTypography.subheadline,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+
+            IconButton(onClick = { showDeleteDialog = true }, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Outlined.Delete, contentDescription = "删除",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+            }
+        }
+    }
+
+    HorizontalDivider(
+        modifier = Modifier.padding(start = 78.dp),
+        thickness = 0.5.dp,
+        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+    )
+}
+
+@Composable
+private fun ChatView(
+    messages: List<UiMessage>,
+    input: String,
+    onInputChange: (String) -> Unit,
+    onSend: () -> Unit,
+    sending: Boolean,
+    lastFailedMessage: String?,
+    onRetry: () -> Unit,
+    onBack: () -> Unit,
+    onNewChat: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val listState = rememberLazyListState()
+
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) listState.animateScrollToItem(messages.size - 1)
+    }
+
+    Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        // Top bar
+        Surface(
+            color = MaterialTheme.colorScheme.surface,
+            shadowElevation = 0.5.dp,
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().statusBarsPadding().height(52.dp).padding(horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.Outlined.ArrowBack, contentDescription = "返回", tint = MaterialTheme.colorScheme.primary)
+                }
+                Text("AI 助手", style = EvatarTypography.headline, modifier = Modifier.weight(1f))
+                TextButton(onClick = onNewChat) {
+                    Text("新对话", style = EvatarTypography.subheadline, color = MaterialTheme.colorScheme.primary)
+                }
             }
         }
 
-        IconButton(onClick = { showDeleteConfirm = true }, modifier = Modifier.size(36.dp)) {
-            Icon(Icons.Default.Delete, contentDescription = "删除", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+        // Messages
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            items(messages) { msg -> ChatBubble(msg) }
+
+            if (sending) {
+                item {
+                    Row {
+                        Box(
+                            modifier = Modifier
+                                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(18.dp, 18.dp, 18.dp, 4.dp))
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        ) {
+                            TypingDots()
+                        }
+                    }
+                }
+            }
+        }
+
+        // Retry bar
+        if (lastFailedMessage != null && !sending) {
+            Surface(
+                color = EvatarColors.LightError.copy(alpha = 0.1f),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("发送失败", style = EvatarTypography.subheadline, color = EvatarColors.LightError, modifier = Modifier.weight(1f))
+                    TextButton(onClick = onRetry) { Text("重试", color = MaterialTheme.colorScheme.primary) }
+                    TextButton(onClick = { }) { Text("取消", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                }
+            }
+        }
+
+        // Input
+        Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 0.5.dp) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedTextField(
+                    value = input,
+                    onValueChange = onInputChange,
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text("输入消息...", style = EvatarTypography.subheadline) },
+                    maxLines = 4,
+                    shape = RoundedCornerShape(20.dp),
+                    textStyle = EvatarTypography.body,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                    ),
+                )
+                FilledIconButton(
+                    onClick = onSend,
+                    enabled = input.isNotBlank() && !sending,
+                    modifier = Modifier.size(44.dp),
+                    shape = CircleShape,
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                    ),
+                ) {
+                    Icon(Icons.Filled.Send, contentDescription = "发送", modifier = Modifier.size(20.dp))
+                }
+            }
         }
     }
 }
 
 @Composable
-fun ChatBubble(msg: UiMessage) {
+private fun ChatBubble(msg: UiMessage) {
     val isUser = msg.role == "user"
+    val bubbleColor = if (isUser) MaterialTheme.colorScheme.primary
+                      else MaterialTheme.colorScheme.surfaceVariant
+    val textColor = if (isUser) Color.White else MaterialTheme.colorScheme.onSurface
+    val shape = RoundedCornerShape(
+        topStart = 18.dp, topEnd = 18.dp,
+        bottomStart = if (isUser) 18.dp else 4.dp,
+        bottomEnd = if (isUser) 4.dp else 18.dp,
+    )
+
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
+        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
     ) {
         if (!isUser) {
             Box(
-                modifier = Modifier.size(32.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
-            ) { Text("E", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary) }
+                modifier = Modifier
+                    .size(30.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("E", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+            }
             Spacer(modifier = Modifier.width(8.dp))
         }
+
         Box(
             modifier = Modifier
-                .widthIn(max = 300.dp)
-                .background(
-                    if (isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-                    RoundedCornerShape(16.dp, 16.dp, if (isUser) 16.dp else 4.dp, if (isUser) 4.dp else 16.dp)
-                )
-                .padding(horizontal = 14.dp, vertical = 10.dp)
+                .widthIn(max = 280.dp)
+                .background(bubbleColor, shape)
+                .padding(horizontal = 14.dp, vertical = 10.dp),
         ) {
-            MarkdownText(
+            Text(
                 text = msg.content,
-                color = if (isUser) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                style = EvatarTypography.body,
+                color = textColor,
+                lineHeight = 22.sp,
             )
         }
     }
 }
 
-/**
- * Simple markdown renderer for Compose. Handles **bold**, `code`, and basic formatting.
- */
 @Composable
-fun MarkdownText(text: String, color: androidx.compose.ui.graphics.Color) {
-    val annotated = remember(text) { parseMarkdown(text, color) }
-    Text(text = annotated, fontSize = 14.sp, lineHeight = 20.sp)
-}
-
-private fun parseMarkdown(text: String, color: androidx.compose.ui.graphics.Color) = buildAnnotatedString {
-    var i = 0
-    while (i < text.length) {
-        when {
-            // **bold**
-            i + 1 < text.length && text[i] == '*' && text[i + 1] == '*' -> {
-                val end = text.indexOf("**", i + 2)
-                if (end != -1) {
-                    withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = color)) {
-                        append(text.substring(i + 2, end))
-                    }
-                    i = end + 2
-                } else { append(text[i]); i++ }
-            }
-            // `code`
-            text[i] == '`' -> {
-                val end = text.indexOf('`', i + 1)
-                if (end != -1) {
-                    withStyle(SpanStyle(fontFamily = FontFamily.Monospace, fontSize = 13.sp, color = color)) {
-                        append(text.substring(i + 1, end))
-                    }
-                    i = end + 1
-                } else { append(text[i]); i++ }
-            }
-            else -> { append(text[i]); i++ }
-        }
-    }
-}
-
-@Composable
-fun TypingDots() {
+private fun TypingDots() {
     var dotCount by remember { mutableIntStateOf(1) }
     LaunchedEffect(Unit) {
         while (true) { kotlinx.coroutines.delay(400); dotCount = (dotCount % 3) + 1 }
     }
-    Text("●".repeat(dotCount) + "○".repeat(3 - dotCount), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(
+        "●".repeat(dotCount) + "○".repeat(3 - dotCount),
+        style = EvatarTypography.body,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }

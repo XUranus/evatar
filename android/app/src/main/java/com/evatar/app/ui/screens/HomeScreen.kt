@@ -6,160 +6,142 @@ import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.evatar.app.R
 import com.evatar.app.keepalive.KeepAliveService
 import com.evatar.app.sync.SyncManager
 import com.evatar.app.sync.SyncResult
 import com.evatar.app.sync.SyncService
-import com.evatar.app.sync.WorkScheduler
+import com.evatar.app.ui.theme.EvatarColors
+import com.evatar.app.ui.theme.EvatarTypography
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(modifier: Modifier = Modifier) {
+fun HomeScreen() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val syncManager = remember { SyncManager(context.applicationContext) }
+    val syncManager = remember { SyncManager(context) }
 
     var serverConnected by remember { mutableStateOf(false) }
-    var isWorkManagerSync by remember { mutableStateOf(WorkScheduler.isScheduled(context)) }
-    var isForegroundSyncRunning by remember { mutableStateOf(false) }
-    var isKeepAliveRunning by remember { mutableStateOf(false) }
+    var isSyncRunning by remember { mutableStateOf(false) }
     var isSyncing by remember { mutableStateOf(false) }
     var lastResult by remember { mutableStateOf<SyncResult?>(null) }
     var autoSyncTriggered by remember { mutableStateOf(false) }
 
-    val overlayPermissionLauncher = rememberLauncherForActivityResult(
+    val overlayLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(context)) {
             KeepAliveService.start(context)
-            isKeepAliveRunning = true
         }
     }
 
-    fun checkAndAutoSync() {
+    fun checkConnection() {
         scope.launch {
-            val connected = withContext(Dispatchers.IO) { syncManager.apiClient.checkHealth() }
-            serverConnected = connected
-            if (connected && !isWorkManagerSync && !autoSyncTriggered) {
+            serverConnected = withContext(Dispatchers.IO) { syncManager.apiClient.checkHealth() }
+            if (serverConnected && !isSyncRunning && !autoSyncTriggered) {
                 autoSyncTriggered = true
-                WorkScheduler.schedulePeriodicSync(context)
-                isWorkManagerSync = true
+                SyncService.start(context)
+                isSyncRunning = true
             }
         }
     }
 
     LaunchedEffect(Unit) {
-        checkAndAutoSync()
+        checkConnection()
         while (true) {
-            kotlinx.coroutines.delay(30000)
+            kotlinx.coroutines.delay(30_000)
             serverConnected = withContext(Dispatchers.IO) { syncManager.apiClient.checkHealth() }
         }
     }
 
     Column(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .verticalScroll(rememberScrollState())
     ) {
-        // Server status
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = if (serverConnected)
-                    MaterialTheme.colorScheme.primaryContainer
-                else
-                    MaterialTheme.colorScheme.errorContainer
-            )
+        // iOS-style large title
+        Text(
+            text = stringResource(R.string.app_name),
+            style = EvatarTypography.largeTitle,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 8.dp)
+        )
+
+        // Connection status card
+        StatusCard(
+            connected = serverConnected,
+            serverUrl = syncManager.apiClient.getServerUrl(),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        )
+
+        // Sync stats card
+        SyncStatsCard(
+            isSyncing = isSyncing,
+            lastResult = lastResult,
+            serverConnected = serverConnected,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        )
+
+        // Action buttons
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            verticalArrangement = Arrangement.spacedBy( 10.dp)
         ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    if (serverConnected) Icons.Default.CheckCircle else Icons.Default.Error,
-                    contentDescription = null,
-                    tint = if (serverConnected) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.error
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text(
-                        if (serverConnected) stringResource(R.string.server_connected)
-                        else stringResource(R.string.server_disconnected),
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(syncManager.apiClient.getServerUrl(), style = MaterialTheme.typography.bodySmall)
-                }
-                Spacer(modifier = Modifier.weight(1f))
-                IconButton(onClick = { checkAndAutoSync() }) {
-                    Icon(Icons.Default.Refresh, contentDescription = "刷新")
-                }
-            }
-        }
-
-        // Sync stats
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(stringResource(R.string.sync_stats), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                Spacer(modifier = Modifier.height(12.dp))
-                if (isSyncing) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(lastResult?.let { "同步中... ${it.success + it.failed}/${it.total}" } ?: "正在准备...")
-                    }
-                } else if (lastResult != null) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        StatItem(stringResource(R.string.stat_synced), lastResult!!.success)
-                        StatItem(stringResource(R.string.stat_errors), lastResult!!.failed)
-                        StatItem(stringResource(R.string.stat_total), lastResult!!.total)
-                    }
-                } else {
-                    Text(
-                        if (serverConnected) "连接成功，等待同步..." else stringResource(R.string.hint_connect_server),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
-
-        // Sync controls - WorkManager (default)
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Primary sync button
             Button(
                 onClick = {
-                    if (isWorkManagerSync) {
-                        WorkScheduler.cancelSync(context); isWorkManagerSync = false; autoSyncTriggered = false
+                    if (isSyncRunning) {
+                        SyncService.stop(context)
+                        isSyncRunning = false
+                        autoSyncTriggered = false
                     } else {
-                        WorkScheduler.schedulePeriodicSync(context); isWorkManagerSync = true
+                        SyncService.start(context)
+                        isSyncRunning = true
                     }
                 },
-                enabled = serverConnected || isWorkManagerSync,
-                modifier = Modifier.weight(1f),
-                colors = if (isWorkManagerSync) ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                else ButtonDefaults.buttonColors()
+                enabled = serverConnected || isSyncRunning,
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = if (isSyncRunning)
+                    ButtonDefaults.buttonColors(containerColor = EvatarColors.LightError)
+                else
+                    ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
             ) {
-                Icon(if (isWorkManagerSync) Icons.Default.Stop else Icons.Default.PlayArrow, contentDescription = null)
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(if (isWorkManagerSync) stringResource(R.string.btn_stop_sync) else stringResource(R.string.btn_start_sync))
+                Icon(
+                    if (isSyncRunning) Icons.Filled.Stop else Icons.Filled.PlayArrow,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    if (isSyncRunning) stringResource(R.string.btn_stop_sync)
+                    else stringResource(R.string.btn_start_sync),
+                    style = EvatarTypography.headline,
+                )
             }
+
+            // Manual sync
             OutlinedButton(
                 onClick = {
                     scope.launch {
@@ -169,67 +151,156 @@ fun HomeScreen(modifier: Modifier = Modifier) {
                     }
                 },
                 enabled = serverConnected && !isSyncing,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                shape = RoundedCornerShape(14.dp),
             ) {
-                Icon(Icons.Default.Sync, contentDescription = null)
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(stringResource(R.string.btn_manual_sync))
+                Icon(Icons.Outlined.Sync, contentDescription = null, modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("手动同步", style = EvatarTypography.headline)
+            }
+
+            // Keep-alive
+            OutlinedButton(
+                onClick = {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(context)) {
+                        overlayLauncher.launch(
+                            Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                Uri.parse("package:${context.packageName}"))
+                        )
+                    } else {
+                        KeepAliveService.start(context)
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                shape = RoundedCornerShape(14.dp),
+            ) {
+                Icon(Icons.Outlined.Lock, contentDescription = null, modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(stringResource(R.string.btn_start_keepalive), style = EvatarTypography.headline)
             }
         }
 
-        // Foreground service as optional force sync
-        OutlinedButton(
-            onClick = {
-                if (isForegroundSyncRunning) {
-                    SyncService.stop(context); isForegroundSyncRunning = false
-                } else {
-                    SyncService.start(context); isForegroundSyncRunning = true
-                }
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Icon(if (isForegroundSyncRunning) Icons.Default.Stop else Icons.Default.PlayArrow, contentDescription = null)
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(if (isForegroundSyncRunning) stringResource(R.string.btn_stop_force_sync) else stringResource(R.string.btn_force_sync))
-        }
+        Spacer(modifier = Modifier.height(24.dp))
 
-        // Keep-alive
-        OutlinedButton(
-            onClick = {
-                if (isKeepAliveRunning) {
-                    KeepAliveService.stop(context); isKeepAliveRunning = false
-                } else {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(context)) {
-                        overlayPermissionLauncher.launch(
-                            Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}"))
-                        )
-                    } else {
-                        KeepAliveService.start(context); isKeepAliveRunning = true
-                    }
-                }
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Icon(if (isKeepAliveRunning) Icons.Default.Stop else Icons.Default.Lock, contentDescription = null)
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(if (isKeepAliveRunning) stringResource(R.string.btn_stop_keepalive) else stringResource(R.string.btn_start_keepalive))
-        }
-
-        Spacer(modifier = Modifier.weight(1f))
-
+        // Footer
         Text(
-            "Evatar v0.1.0",
-            style = MaterialTheme.typography.bodySmall,
+            "Evatar v0.3.0",
+            style = EvatarTypography.caption1,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.align(Alignment.CenterHorizontally)
+            modifier = Modifier.align(Alignment.CenterHorizontally),
         )
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
 @Composable
-fun StatItem(label: String, value: Int) {
+private fun StatusCard(connected: Boolean, serverUrl: String, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (connected)
+                EvatarColors.LightSuccess.copy(alpha = 0.1f)
+            else
+                EvatarColors.LightError.copy(alpha = 0.1f)
+        ),
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // Status dot
+            Box(
+                modifier = Modifier
+                    .size(10.dp)
+                    .clip(CircleShape)
+                    .background(if (connected) EvatarColors.LightSuccess else EvatarColors.LightError)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    if (connected) stringResource(R.string.server_connected)
+                    else stringResource(R.string.server_disconnected),
+                    style = EvatarTypography.headline,
+                    color = if (connected) EvatarColors.LightSuccess else EvatarColors.LightError,
+                )
+                Text(
+                    serverUrl,
+                    style = EvatarTypography.caption1,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SyncStatsCard(isSyncing: Boolean, lastResult: SyncResult?, serverConnected: Boolean, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                stringResource(R.string.sync_stats),
+                style = EvatarTypography.headline,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+
+            when {
+                isSyncing -> {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            lastResult?.let { "同步中... ${it.success + it.failed}/${it.total}" }
+                                ?: "正在准备...",
+                            style = EvatarTypography.subheadline,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                lastResult != null -> {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                    ) {
+                        StatColumn(stringResource(R.string.stat_synced), lastResult.success, EvatarColors.LightSuccess)
+                        StatColumn(stringResource(R.string.stat_errors), lastResult.failed, EvatarColors.LightError)
+                        StatColumn(stringResource(R.string.stat_total), lastResult.total, MaterialTheme.colorScheme.onSurface)
+                    }
+                }
+                else -> {
+                    Text(
+                        if (serverConnected) "连接成功，等待同步..."
+                        else stringResource(R.string.hint_connect_server),
+                        style = EvatarTypography.subheadline,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatColumn(label: String, value: Int, valueColor: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value.toString(), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-        Text(label, style = MaterialTheme.typography.bodySmall)
+        Text(
+            value.toString(),
+            style = EvatarTypography.title1,
+            fontWeight = FontWeight.Bold,
+            color = valueColor,
+        )
+        Text(
+            label,
+            style = EvatarTypography.caption1,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
