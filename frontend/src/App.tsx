@@ -6,7 +6,6 @@ import ChatPage from './pages/Chat';
 import DynamicsPage from './pages/Dynamics';
 import SettingsPage from './pages/Settings';
 import ErrorBoundary from './components/ErrorBoundary';
-import { getDynamicsUnreadCount } from './api/client';
 import './index.css';
 
 type Page = 'dashboard' | 'photos' | 'chat' | 'dynamics' | 'settings';
@@ -17,87 +16,175 @@ export default function App() {
   const [dark, setDark] = useState(() => {
     const saved = localStorage.getItem('evatar-theme');
     if (saved) return saved === 'dark';
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    return true; // Dark mode default for Observatory aesthetic
   });
-  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark);
+    document.documentElement.classList.toggle('light', !dark);
     localStorage.setItem('evatar-theme', dark ? 'dark' : 'light');
   }, [dark]);
-
-  useEffect(() => {
-    const fetchUnread = () => {
-      getDynamicsUnreadCount().then(r => setUnreadCount(r.data.unread_count)).catch(() => {});
-    };
-    fetchUnread();
-    const interval = setInterval(fetchUnread, 30000);
-    return () => clearInterval(interval);
-  }, []);
 
   const toggleLang = () => {
     const next = i18n.language === 'zh-CN' ? 'en' : 'zh-CN';
     i18n.changeLanguage(next);
   };
 
-  const navItems: { key: Page; icon: string }[] = [
-    { key: 'dashboard', icon: '📊' },
-    { key: 'photos', icon: '🖼️' },
-    { key: 'chat', icon: '💬' },
-    { key: 'dynamics', icon: '📰' },
-    { key: 'settings', icon: '⚙️' },
+  const navItems: { key: Page; icon: string; label: string }[] = [
+    { key: 'dashboard', icon: '◈', label: t('nav.dashboard', 'Dashboard') },
+    { key: 'photos', icon: '◎', label: t('nav.photos', 'Photos') },
+    { key: 'chat', icon: '◆', label: t('nav.chat', 'Chat') },
+    { key: 'dynamics', icon: '◇', label: t('nav.dynamics', 'Dynamics') },
+    { key: 'settings', icon: '⚙', label: t('nav.settings', 'Settings') },
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex">
-      <aside className="w-56 glass-strong flex flex-col flex-shrink-0 border-r border-gray-200 dark:border-gray-800">
-        <div className="p-5 border-b border-gray-200 dark:border-gray-800">
-          <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">📷 {t('app.name')}</h1>
-          <p className="text-xs text-gray-400 mt-1">{t('app.subtitle')}</p>
-        </div>
-        <nav className="flex-1 p-3 space-y-1">
-          {navItems.map(item => (
-            <button
-              key={item.key}
-              onClick={() => setPage(item.key)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                page === item.key
-                  ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium'
-                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-              }`}
+    <div className="noise flex h-screen overflow-hidden" style={{ background: 'var(--bg-void)' }}>
+      {/* ── Sidebar ── */}
+      <aside
+        className="glass-strong flex flex-col flex-shrink-0 animate-fade-in"
+        style={{
+          width: '220px',
+          borderRight: '1px solid var(--border)',
+        }}
+      >
+        {/* Logo */}
+        <div className="px-6 py-6" style={{ borderBottom: '1px solid var(--border)' }}>
+          <div className="flex items-center gap-3">
+            <div
+              className="flex items-center justify-center"
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '10px',
+                background: 'var(--amber-dim)',
+                border: '1px solid var(--border-accent)',
+                boxShadow: 'var(--shadow-glow)',
+              }}
             >
-              <span className="text-base">{item.icon}</span>
-              <span className="flex-1 text-left">{t(`nav.${item.key}`, item.key)}</span>
-              {item.key === 'dynamics' && unreadCount > 0 && (
-                <span className="px-1.5 py-0.5 text-xs font-medium bg-red-500 text-white rounded-full min-w-[1.25rem] text-center">
-                  {unreadCount > 99 ? '99+' : unreadCount}
+              <span style={{ color: 'var(--amber)', fontSize: '16px' }}>◈</span>
+            </div>
+            <div>
+              <h1
+                style={{
+                  fontFamily: 'var(--font-display)',
+                  fontSize: '1.3rem',
+                  color: 'var(--text-primary)',
+                  lineHeight: 1.1,
+                }}
+              >
+                Evatar
+              </h1>
+              <p className="label" style={{ marginTop: '2px' }}>
+                {t('app.subtitle', 'Screenshot AI')}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Nav */}
+        <nav className="flex-1 px-3 py-4" style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          {navItems.map((item, i) => {
+            const active = page === item.key;
+            return (
+              <button
+                key={item.key}
+                onClick={() => setPage(item.key)}
+                className="animate-fade-up"
+                style={{
+                  animationDelay: `${i * 50}ms`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '10px 14px',
+                  borderRadius: 'var(--radius-md)',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontFamily: 'var(--font-body)',
+                  fontSize: '0.85rem',
+                  fontWeight: active ? 600 : 400,
+                  color: active ? 'var(--amber)' : 'var(--text-secondary)',
+                  background: active ? 'var(--amber-dim)' : 'transparent',
+                  transition: 'all 0.2s ease',
+                  textAlign: 'left',
+                  width: '100%',
+                }}
+                onMouseEnter={e => {
+                  if (!active) {
+                    e.currentTarget.style.background = 'var(--glass-highlight)';
+                    e.currentTarget.style.color = 'var(--text-primary)';
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!active) {
+                    e.currentTarget.style.background = 'transparent';
+                    e.currentTarget.style.color = 'var(--text-secondary)';
+                  }
+                }}
+              >
+                <span style={{ fontSize: '14px', width: '20px', textAlign: 'center', opacity: active ? 1 : 0.6 }}>
+                  {item.icon}
                 </span>
-              )}
-            </button>
-          ))}
+                {item.label}
+                {active && (
+                  <div
+                    style={{
+                      marginLeft: 'auto',
+                      width: '4px',
+                      height: '4px',
+                      borderRadius: '50%',
+                      background: 'var(--amber)',
+                      boxShadow: '0 0 8px var(--amber-glow)',
+                    }}
+                  />
+                )}
+              </button>
+            );
+          })}
         </nav>
-        <div className="p-4 border-t border-gray-200 dark:border-gray-800 flex items-center justify-between">
-          <span className="text-xs text-gray-400">v0.3.0</span>
-          <div className="flex gap-1">
-            <button onClick={toggleLang}
-              className="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-700 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">
-              {i18n.language === 'zh-CN' ? 'EN' : '中文'}
+
+        {/* Footer controls */}
+        <div
+          className="px-4 py-4 flex items-center justify-between"
+          style={{ borderTop: '1px solid var(--border)' }}
+        >
+          <span className="label" style={{ fontSize: '0.65rem' }}>v0.3.0</span>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <button
+              onClick={toggleLang}
+              className="btn-ghost"
+              style={{ padding: '4px 10px', fontSize: '0.7rem', borderRadius: '6px' }}
+            >
+              {i18n.language === 'zh-CN' ? 'EN' : '中'}
             </button>
-            <button onClick={() => setDark(!dark)}
-              className="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-700 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">
-              {dark ? '☀️' : '🌙'}
+            <button
+              onClick={() => setDark(!dark)}
+              className="btn-ghost"
+              style={{ padding: '4px 10px', fontSize: '0.7rem', borderRadius: '6px' }}
+            >
+              {dark ? '☀' : '☾'}
             </button>
           </div>
         </div>
       </aside>
 
-      <main className={`flex-1 overflow-auto ${page === 'chat' ? 'p-0' : 'p-6'}`}>
+      {/* ── Main content ── */}
+      <main
+        className="mesh-bg"
+        style={{
+          flex: 1,
+          overflow: 'auto',
+          padding: page === 'chat' ? '0' : '32px',
+        }}
+      >
         <ErrorBoundary>
-          {page === 'dashboard' && <Dashboard />}
-          {page === 'photos' && <Photos />}
-          {page === 'chat' && <ChatPage />}
-          {page === 'dynamics' && <DynamicsPage />}
-          {page === 'settings' && <SettingsPage />}
+          <div className="animate-fade-up" key={page}>
+            {page === 'dashboard' && <Dashboard />}
+            {page === 'photos' && <Photos />}
+            {page === 'chat' && <ChatPage />}
+            {page === 'dynamics' && <DynamicsPage />}
+            {page === 'settings' && <SettingsPage />}
+          </div>
         </ErrorBoundary>
       </main>
     </div>
