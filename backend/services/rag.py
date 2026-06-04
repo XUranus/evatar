@@ -42,6 +42,12 @@ def _fts_search(db: Session, query: str, limit: int) -> list[dict]:
         ).fetchone()
         if not check:
             _build_fts_index(db)
+        else:
+            # Check if FTS index is stale (has fewer rows than analyses)
+            fts_count = db.execute(text("SELECT count(*) FROM analysis_fts")).scalar()
+            analysis_count = db.execute(text("SELECT count(*) FROM analyses WHERE status = 'done'")).scalar()
+            if fts_count < analysis_count:
+                _build_fts_index(db)
 
         fts_query = _sanitize_fts_query(query)
         if not fts_query:
@@ -120,6 +126,13 @@ def _keyword_search(db: Session, query: str, limit: int) -> list[dict]:
 
 
 def _row_to_result(row) -> dict:
+    ts = row[7]
+    if ts and isinstance(ts, str):
+        timestamp = ts  # Already a string from SQLite
+    elif ts and hasattr(ts, "isoformat"):
+        timestamp = ts.isoformat()
+    else:
+        timestamp = None
     return {
         "analysis_id": row[0],
         "summary": row[1] or "",
@@ -128,5 +141,5 @@ def _row_to_result(row) -> dict:
         "intent": row[4] or "",
         "entities": row[5] or "[]",
         "filename": row[6] or "",
-        "timestamp": row[7].isoformat() if row[7] else None,
+        "timestamp": timestamp,
     }

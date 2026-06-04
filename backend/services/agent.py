@@ -14,28 +14,54 @@ from services.search import web_search
 
 logger = logging.getLogger("evatar.agent")
 
-SYSTEM_PROMPT = """你是 Evatar，一个智能个人助手。你的能力：
+SYSTEM_PROMPT = """你是 Evatar，一个智能个人助手。你拥有用户的手机截图知识库，包含用户的各种截图分析结果。
 
-1. **知识库查询 (search_knowledge)**: 搜索用户手机截图中的信息。
-2. **互联网搜索 (web_search)**: 搜索互联网获取最新信息。
+## 工具使用策略
 
-使用规则：
-- 用户问截图相关内容 → search_knowledge
-- 需要实时信息/不确定的事实 → web_search
-- 可同时使用多个工具
+### search_knowledge — 搜索截图知识库
+**关键：一次搜不到就换词再搜！**
+- 第一次搜索用核心关键词（如"股票"、"火车"）
+- 如果没结果，用同义词或更宽泛的词重试（如"股价"→"行情"→"金融"）
+- 也可以用关联词（如问出行→搜"火车""高铁""导航""12306"）
+- 用多个独立关键词分别搜索，不要把所有词拼在一起
+
+### web_search — 搜索互联网
+- 需要实时信息、新闻、股价等使用
+
+## 回答风格
 - 用中文回答，简洁有条理
-- 引用找到的截图信息"""
+- 用表格整理结构化数据
+- 引用截图中的具体信息（时间、金额、人名等）
+- 如果知识库有相关信息但不完全匹配，也要告诉用户找到了什么"""
 
 TOOLS = [
     {
         "type": "function",
         "function": {
             "name": "search_knowledge",
-            "description": "搜索用户手机截图知识库。",
+            "description": "搜索用户手机截图知识库。如果第一次没搜到，换关键词重试。",
             "parameters": {
                 "type": "object",
-                "properties": {"query": {"type": "string", "description": "搜索关键词"}},
+                "properties": {"query": {"type": "string", "description": "搜索关键词，用空格分隔多个词"}},
                 "required": ["query"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_multi",
+            "description": "同时用多个关键词搜索知识库，合并去重返回。适合一次查多个相关主题。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "queries": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "搜索关键词列表，如 [\"股票\", \"火车票\", \"招标\"]"
+                    }
+                },
+                "required": ["queries"]
             }
         }
     },
@@ -160,7 +186,18 @@ async def chat(
 async def _execute_tool(name: str, args: dict, db: Session) -> dict:
     if name == "search_knowledge":
         results = search_screenshots(db, args.get("query", ""), limit=8)
-        return {"tool": "search_knowledge", "query": args.get("query"), "results": results}
+        return {"tool": "search_knowledge", "query": args.get("query"), "count": len(results), "results": results}
+    elif name == "search_multi":
+        queries = args.get("queries", [])
+        seen_ids = set()
+        all_results = []
+        for q in queries[:5]:
+            for r in search_screenshots(db, q, limit=5):
+                rid = r.get("analysis_id")
+                if rid not in seen_ids:
+                    seen_ids.add(rid)
+                    all_results.append(r)
+        return {"tool": "search_multi", "queries": queries, "count": len(all_results), "results": all_results[:12]}
     elif name == "web_search":
         results = await web_search(args.get("query", ""), num_results=5)
         return {"tool": "web_search", "query": args.get("query"), "results": results}
