@@ -113,10 +113,12 @@ fun HomeScreen() {
                 onClick = {
                     if (isSyncRunning) {
                         SyncService.stop(context)
+                        com.evatar.app.sync.WorkScheduler.setScheduled(context, false)
                         isSyncRunning = false
                         autoSyncTriggered = false
                     } else {
                         SyncService.start(context)
+                        com.evatar.app.sync.WorkScheduler.setScheduled(context, true)
                         isSyncRunning = true
                     }
                 },

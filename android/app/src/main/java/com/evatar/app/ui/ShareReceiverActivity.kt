@@ -63,9 +63,8 @@ class ShareReceiverActivity : ComponentActivity() {
                 }
 
                 val apiClient = ApiClient.getInstance(this@ShareReceiverActivity)
-                val deviceId = android.provider.Settings.Secure.getString(
-                    contentResolver, android.provider.Settings.Secure.ANDROID_ID
-                ) ?: "unknown_device"
+                val syncManager = com.evatar.app.sync.SyncManager(this@ShareReceiverActivity)
+                val deviceId = syncManager.deviceId
                 val result = apiClient.uploadPhoto(
                     filePath = tempFile.absolutePath,
                     deviceId = deviceId,

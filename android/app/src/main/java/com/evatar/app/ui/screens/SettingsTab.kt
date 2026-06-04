@@ -33,6 +33,7 @@ fun SettingsTab(modifier: Modifier = Modifier) {
     var serverUrl by remember { mutableStateOf(apiClient.getServerUrl()) }
     var urlField by remember { mutableStateOf(serverUrl) }
     var saved by remember { mutableStateOf(false) }
+    var urlError by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState())
@@ -57,13 +58,27 @@ fun SettingsTab(modifier: Modifier = Modifier) {
             SettingsAction(
                 label = stringResource(R.string.setting_save),
                 onClick = {
-                    apiClient.setServerUrl(urlField)
-                    serverUrl = urlField
-                    saved = true
+                    val trimmed = urlField.trim()
+                    when {
+                        trimmed.isEmpty() -> { urlError = "请输入服务端地址"; saved = false }
+                        !trimmed.startsWith("http://") && !trimmed.startsWith("https://") -> {
+                            urlError = "地址必须以 http:// 或 https:// 开头"; saved = false
+                        }
+                        else -> {
+                            urlError = null
+                            apiClient.setServerUrl(trimmed)
+                            serverUrl = trimmed
+                            saved = true
+                        }
+                    }
                 },
             )
             if (saved) {
                 Text("已保存", style = EvatarTypography.caption1, color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(start = 56.dp, bottom = 8.dp))
+            }
+            if (urlError != null) {
+                Text(urlError!!, style = EvatarTypography.caption1, color = com.evatar.app.ui.theme.EvatarColors.LightError,
                     modifier = Modifier.padding(start = 56.dp, bottom = 8.dp))
             }
         }

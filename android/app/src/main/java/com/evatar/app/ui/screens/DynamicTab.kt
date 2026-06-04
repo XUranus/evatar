@@ -46,9 +46,11 @@ fun DynamicTab(modifier: Modifier = Modifier) {
     var expandedId by remember { mutableIntStateOf(-1) }
     var filter by remember { mutableStateOf("") }
     var triggering by remember { mutableStateOf(false) }
+    var loading by remember { mutableStateOf(true) }
 
     fun load() {
         scope.launch {
+            loading = true
             val json = withContext(Dispatchers.IO) { apiClient.getDynamics(filter.ifEmpty { null }) }
             val arr = json.optJSONArray("items") ?: org.json.JSONArray()
             val list = mutableListOf<UiDynamic>()
@@ -63,6 +65,7 @@ fun DynamicTab(modifier: Modifier = Modifier) {
                 ))
             }
             items = list
+            loading = false
         }
     }
 
@@ -98,7 +101,11 @@ fun DynamicTab(modifier: Modifier = Modifier) {
             }
         }
 
-        if (items.isEmpty()) {
+        if (loading) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(modifier = Modifier.size(32.dp), strokeWidth = 2.dp)
+            }
+        } else if (items.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Outlined.Article, contentDescription = null,

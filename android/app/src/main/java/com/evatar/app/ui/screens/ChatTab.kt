@@ -48,11 +48,13 @@ fun ChatTab(modifier: Modifier = Modifier) {
     var messages by remember { mutableStateOf(listOf<UiMessage>()) }
     var input by remember { mutableStateOf("") }
     var sending by remember { mutableStateOf(false) }
+    var loadingConversations by remember { mutableStateOf(true) }
     var lastFailedMessage by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
 
     fun loadConversations() {
         scope.launch {
+            loadingConversations = true
             val arr = withContext(Dispatchers.IO) { apiClient.getConversations() }
             val list = mutableListOf<UiConversation>()
             for (i in 0 until arr.length()) {
@@ -65,6 +67,7 @@ fun ChatTab(modifier: Modifier = Modifier) {
                 ))
             }
             conversations = list
+            loadingConversations = false
         }
     }
 
@@ -84,10 +87,12 @@ fun ChatTab(modifier: Modifier = Modifier) {
         }
     }
 
-    fun doSend(text: String) {
+    fun doSend(text: String, isRetry: Boolean = false) {
         sending = true
         lastFailedMessage = null
-        messages = messages + UiMessage("user", text)
+        if (!isRetry) {
+            messages = messages + UiMessage("user", text)
+        }
 
         scope.launch {
             val result = withContext(Dispatchers.IO) { apiClient.sendMessage(text, activeConvId) }
@@ -117,9 +122,10 @@ fun ChatTab(modifier: Modifier = Modifier) {
         // Conversation list
         ConversationList(
             conversations = conversations,
+            loading = loadingConversations,
             onSelect = { activeConvId = it.id; loadMessages(it.id) },
             onNew = {
-                activeConvId = null
+                activeConvId = ""  // empty string = new unsaved conversation
                 messages = listOf(UiMessage("assistant", "你好！我是 Evatar AI 助手。\n\n搜索截图知识库、搜索互联网、上传图片分析"))
             },
             onDelete = { conv ->
@@ -142,10 +148,11 @@ fun ChatTab(modifier: Modifier = Modifier) {
             },
             sending = sending,
             lastFailedMessage = lastFailedMessage,
-            onRetry = { lastFailedMessage?.let { doSend(it) } },
+            onRetry = { lastFailedMessage?.let { doSend(it, isRetry = true) } },
+            onCancel = { lastFailedMessage = null },
             onBack = { activeConvId = null; messages = emptyList(); loadConversations() },
             onNewChat = {
-                activeConvId = null
+                activeConvId = ""  // sentinel: new unsaved conversation
                 messages = listOf(UiMessage("assistant", "新对话已开始，请输入你的问题。"))
             },
             modifier = modifier,
@@ -157,6 +164,7 @@ fun ChatTab(modifier: Modifier = Modifier) {
 @Composable
 private fun ConversationList(
     conversations: List<UiConversation>,
+    loading: Boolean,
     onSelect: (UiConversation) -> Unit,
     onNew: () -> Unit,
     onDelete: (UiConversation) -> Unit,
@@ -171,7 +179,11 @@ private fun ConversationList(
             modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 8.dp)
         )
 
-        if (conversations.isEmpty()) {
+        if (loading) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(modifier = Modifier.size(32.dp), strokeWidth = 2.dp)
+            }
+        } else if (conversations.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("💬", fontSize = 48.sp)
@@ -288,6 +300,7 @@ private fun ChatView(
     sending: Boolean,
     lastFailedMessage: String?,
     onRetry: () -> Unit,
+    onCancel: () -> Unit,
     onBack: () -> Unit,
     onNewChat: () -> Unit,
     modifier: Modifier = Modifier,
@@ -354,7 +367,7 @@ private fun ChatView(
                 ) {
                     Text("发送失败", style = EvatarTypography.subheadline, color = EvatarColors.LightError, modifier = Modifier.weight(1f))
                     TextButton(onClick = onRetry) { Text("重试", color = MaterialTheme.colorScheme.primary) }
-                    TextButton(onClick = { }) { Text("取消", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    TextButton(onClick = onCancel) { Text("取消", color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
             }
         }

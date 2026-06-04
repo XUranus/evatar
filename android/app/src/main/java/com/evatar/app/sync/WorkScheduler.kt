@@ -14,10 +14,6 @@ object WorkScheduler {
     private const val TAG = "WorkScheduler"
     private const val UNIQUE_WORK_NAME = "evatar_sync"
 
-    /**
-     * Enqueue a periodic sync job that runs every 30 minutes
-     * when the device has an active network connection.
-     */
     fun schedulePeriodicSync(context: Context) {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
@@ -35,20 +31,22 @@ object WorkScheduler {
         Log.i(TAG, "Periodic sync scheduled (every 30 min, requires network)")
     }
 
-    /**
-     * Cancel the periodic sync job.
-     */
     fun cancelSync(context: Context) {
         WorkManager.getInstance(context).cancelUniqueWork(UNIQUE_WORK_NAME)
         Log.i(TAG, "Periodic sync cancelled")
     }
 
     /**
-     * Check whether the periodic sync job is currently scheduled.
+     * Non-blocking check: uses a simple SharedPreferences flag set by SyncWorker.
+     * Actual WorkManager state requires async query; this is a fast approximation.
      */
     fun isScheduled(context: Context): Boolean {
-        val info = WorkManager.getInstance(context)
-            .getWorkInfosForUniqueWork(UNIQUE_WORK_NAME).get()
-        return info.any { !it.state.isFinished }
+        val prefs = context.getSharedPreferences("evatar_prefs", Context.MODE_PRIVATE)
+        return prefs.getBoolean("sync_scheduled", false)
+    }
+
+    fun setScheduled(context: Context, scheduled: Boolean) {
+        context.getSharedPreferences("evatar_prefs", Context.MODE_PRIVATE)
+            .edit().putBoolean("sync_scheduled", scheduled).apply()
     }
 }
