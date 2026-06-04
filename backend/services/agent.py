@@ -1,5 +1,6 @@
 """Agent service: LLM chat with RAG and web search tools."""
 
+import asyncio
 import json
 import logging
 from sqlalchemy.orm import Session
@@ -93,6 +94,16 @@ async def chat(
         if skill_prompt and round_num == 0:
             system_content += f"\n\n## 当前技能指令\n{skill_prompt}"
 
+        # Inject user memories into system prompt
+        if round_num == 0:
+            try:
+                from services.memory import get_memories_as_context
+                memories_ctx = get_memories_as_context(db, conv.device_id or "", limit=8)
+                if memories_ctx:
+                    system_content += f"\n\n{memories_ctx}"
+            except Exception as e:
+                logger.warning(f"Failed to load memories: {e}")
+
         full_messages = [{"role": "system", "content": system_content}] + history
         response = await call_llm(full_messages, tools=TOOLS)
         assistant_content = response.get("content", "")
@@ -110,6 +121,17 @@ async def chat(
             if conv.title == "新对话" and user_message:
                 conv.title = user_message[:50]
             db.commit()
+
+            # Extract memories from this conversation turn (async, non-blocking)
+            try:
+                from services.memory import extract_memories_from_text
+                turn_text = f"用户: {user_message}\n助手: {assistant_content[:500]}"
+                asyncio.create_task(
+                    extract_memories_from_text(turn_text, "chat", conversation_id, conv.device_id or "", db)
+                )
+            except Exception:
+                pass
+
             return {"role": "assistant", "content": assistant_content, "tool_calls": []}
 
         history.append({"role": "assistant", "content": assistant_content, "tool_calls": tool_calls})

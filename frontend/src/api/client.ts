@@ -156,3 +156,51 @@ export const deleteConversation = (id: string) => api.delete(`/chat/conversation
 export const getMCPServers = () => api.get<{ servers: MCPServer[] }>('/mcp-servers');
 export const createMCPServer = (server: Omit<MCPServer, 'enabled'>) => api.post('/mcp-servers', server);
 export const deleteMCPServer = (id: string) => api.delete(`/mcp-servers/${id}`);
+
+// ── Dynamics ──
+
+export interface DynamicItem {
+  id: number;
+  title: string;
+  summary: string;
+  content: string;
+  category: string;
+  confidence: number;
+  is_read: boolean;
+  is_pinned: boolean;
+  device_id: string | null;
+  created_at: string;
+}
+
+export const getDynamics = (page = 1, pageSize = 20, category?: string) =>
+  api.get<{ total: number; items: DynamicItem[] }>('/dynamics', {
+    params: { page, page_size: pageSize, ...(category ? { category } : {}) },
+  });
+
+export const getDynamic = (id: number) => api.get<DynamicItem>(`/dynamics/${id}`);
+export const markDynamicRead = (id: number) => api.put(`/dynamics/${id}/read`);
+export const toggleDynamicPin = (id: number) => api.put(`/dynamics/${id}/pin`);
+export const deleteDynamic = (id: number) => api.delete(`/dynamics/${id}`);
+export const triggerReasoning = () => api.post('/dynamics/trigger');
+
+// ── Memories ──
+
+export interface MemoryItem {
+  id: number;
+  content: string;
+  memory_type: string;
+  source_type: string;
+  category: string;
+  importance: number;
+  access_count: number;
+  created_at: string;
+  expires_at: string | null;
+}
+
+export const getMemories = (page = 1, pageSize = 50, memoryType?: string) =>
+  api.get<{ total: number; items: MemoryItem[] }>('/memories', {
+    params: { page, page_size: pageSize, ...(memoryType ? { memory_type: memoryType } : {}) },
+  });
+
+export const getMemoryStats = () =>
+  api.get<{ total: number; short_term: number; long_term: number; categories: Record<string, number> }>('/memories/stats');

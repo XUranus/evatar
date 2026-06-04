@@ -3,11 +3,12 @@ import { useTranslation } from 'react-i18next';
 import Dashboard from './pages/Dashboard';
 import Photos from './pages/Photos';
 import ChatPage from './pages/Chat';
+import DynamicsPage from './pages/Dynamics';
 import SettingsPage from './pages/Settings';
 import ErrorBoundary from './components/ErrorBoundary';
 import './index.css';
 
-type Page = 'dashboard' | 'photos' | 'chat' | 'settings';
+type Page = 'dashboard' | 'photos' | 'chat' | 'dynamics' | 'settings';
 
 export default function App() {
   const { t, i18n } = useTranslation();
@@ -32,12 +33,12 @@ export default function App() {
     { key: 'dashboard', icon: '📊' },
     { key: 'photos', icon: '🖼️' },
     { key: 'chat', icon: '💬' },
+    { key: 'dynamics', icon: '📰' },
     { key: 'settings', icon: '⚙️' },
   ];
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex">
-      {/* Sidebar */}
       <aside className="w-56 glass-strong flex flex-col flex-shrink-0 border-r border-gray-200 dark:border-gray-800">
         <div className="p-5 border-b border-gray-200 dark:border-gray-800">
           <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">📷 {t('app.name')}</h1>
@@ -60,7 +61,7 @@ export default function App() {
           ))}
         </nav>
         <div className="p-4 border-t border-gray-200 dark:border-gray-800 flex items-center justify-between">
-          <span className="text-xs text-gray-400">v0.1.0</span>
+          <span className="text-xs text-gray-400">v0.3.0</span>
           <div className="flex gap-1">
             <button onClick={toggleLang}
               className="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-700 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">
@@ -74,12 +75,12 @@ export default function App() {
         </div>
       </aside>
 
-      {/* Main content */}
       <main className={`flex-1 overflow-auto ${page === 'chat' ? 'p-0' : 'p-6'}`}>
         <ErrorBoundary>
           {page === 'dashboard' && <Dashboard />}
           {page === 'photos' && <Photos />}
           {page === 'chat' && <ChatPage />}
+          {page === 'dynamics' && <DynamicsPage />}
           {page === 'settings' && <SettingsPage />}
         </ErrorBoundary>
       </main>

@@ -8,7 +8,8 @@
     "photos": "Photos",
     "settings": "Settings",
     "llm_config": "LLM Config",
-    "chat": "AI Chat"
+    "chat": "AI Chat",
+    "dynamics": "Dynamics"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -83,6 +84,19 @@
     "current_config": "Current Config",
     "api_key_set": "Set",
     "api_key_not_set": "Not set"
+  },
+  "dynamic": {
+    "title": "Dynamics",
+    "all": "All",
+    "trigger": "Generate",
+    "empty": "No dynamics yet",
+    "empty_desc": "The background intent reasoner will periodically analyze your screenshots and chats to generate valuable notes.",
+    "categories": {
+      "insight": "Insight",
+      "reminder": "Reminder",
+      "report": "Report",
+      "note": "Note"
+    }
   },
   "chat": {
     "title": "AI Assistant",
