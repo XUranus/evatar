@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from models import Memory
 from services.llm import call_llm
 from services.utils import strip_code_fences, clamp
+from services.encryption import is_encryption_enabled, encrypt_field
 
 logger = logging.getLogger("evatar.memory")
 
@@ -73,8 +74,14 @@ async def extract_memories_from_text(
 
             importance = clamp(entry.get("importance", 0.5))
 
+            mem_content = entry["content"]
+            enc_content = None
+            if is_encryption_enabled():
+                enc_content = encrypt_field(mem_content)
+
             memory = Memory(
-                content=entry["content"],
+                content=mem_content,
+                encrypted_content=enc_content,
                 memory_type=mem_type,
                 source_type=source_type,
                 source_id=source_id,
@@ -121,7 +128,7 @@ def get_relevant_memories(db: Session, device_id: str, limit: int = 10) -> list[
     )
 
     return [
-        {"id": m.id, "content": m.content, "category": m.category,
+        {"id": m.id, "content": m.display_content, "category": m.category,
          "memory_type": m.memory_type, "importance": m.importance}
         for m in memories
     ]

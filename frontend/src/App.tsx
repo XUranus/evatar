@@ -6,6 +6,7 @@ import ChatPage from './pages/Chat';
 import DynamicsPage from './pages/Dynamics';
 import SettingsPage from './pages/Settings';
 import ErrorBoundary from './components/ErrorBoundary';
+import { getDynamicsUnreadCount } from './api/client';
 import './index.css';
 
 type Page = 'dashboard' | 'photos' | 'chat' | 'dynamics' | 'settings';
@@ -18,11 +19,21 @@ export default function App() {
     if (saved) return saved === 'dark';
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark);
     localStorage.setItem('evatar-theme', dark ? 'dark' : 'light');
   }, [dark]);
+
+  useEffect(() => {
+    const fetchUnread = () => {
+      getDynamicsUnreadCount().then(r => setUnreadCount(r.data.unread_count)).catch(() => {});
+    };
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const toggleLang = () => {
     const next = i18n.language === 'zh-CN' ? 'en' : 'zh-CN';
@@ -56,7 +67,12 @@ export default function App() {
               }`}
             >
               <span className="text-base">{item.icon}</span>
-              {t(`nav.${item.key}`, item.key)}
+              <span className="flex-1 text-left">{t(`nav.${item.key}`, item.key)}</span>
+              {item.key === 'dynamics' && unreadCount > 0 && (
+                <span className="px-1.5 py-0.5 text-xs font-medium bg-red-500 text-white rounded-full min-w-[1.25rem] text-center">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
             </button>
           ))}
         </nav>

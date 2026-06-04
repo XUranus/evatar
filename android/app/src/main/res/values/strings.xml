@@ -36,4 +36,25 @@
     <string name="notification_keepalive_channel">后台保活</string>
     <string name="notification_sync_title">Evatar 同步</string>
     <string name="notification_keepalive_title">Evatar 保活</string>
+
+    <!-- Sync controls -->
+    <string name="btn_manual_sync">手动同步</string>
+    <string name="btn_force_sync">强制同步</string>
+    <string name="btn_stop_force_sync">停止强制同步</string>
+
+    <!-- Share -->
+    <string name="share_success">已分享到 Evatar</string>
+    <string name="share_image_failed">分享图片失败</string>
+    <string name="share_text_failed">分享文本失败</string>
+    <string name="share_no_image">未找到图片</string>
+    <string name="share_no_text">未找到文本内容</string>
+    <string name="share_unsupported_type">不支持的分享类型</string>
+
+    <!-- App Exclusion -->
+    <string name="setting_exclusion_title">排除应用</string>
+    <string name="setting_exclusion_desc">排除指定应用的截图，不同步到服务端。</string>
+    <string name="setting_exclusion_remove">移除</string>
+    <string name="setting_exclusion_empty">暂无排除的应用</string>
+    <string name="setting_exclusion_input_label">包名</string>
+    <string name="setting_exclusion_add">添加</string>
 </resources>

@@ -1,12 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   getLLMConfig, updateLLMConfig, getLLMPresets, applyLLMPreset,
   getMCPServers, createMCPServer, deleteMCPServer,
+  getDataStats, getRetentionDays, setRetentionDays, clearAllData, exportData,
+  getPushConfig, setPushConfig, sendTestNotification,
+  getExcludedApps,
   type LLMConfig as LLMConfigType, type LLMPreset, type MCPServer,
+  type DataStats,
 } from '../api/client';
 
-type SettingsTab = 'general' | 'llm' | 'mcp' | 'advanced';
+type SettingsTab = 'general' | 'privacy' | 'llm' | 'mcp' | 'advanced';
 
 const PROVIDER_COLORS: Record<string, string> = {
   mimo: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-700',
@@ -20,6 +24,7 @@ const PROVIDER_COLORS: Record<string, string> = {
 
 const tabItems: { key: SettingsTab; icon: string; label: string }[] = [
   { key: 'general', icon: '⚙️', label: '通用' },
+  { key: 'privacy', icon: '🔒', label: '隐私' },
   { key: 'llm', icon: '🤖', label: 'LLM 设置' },
   { key: 'mcp', icon: '🔌', label: 'MCP 服务器' },
   { key: 'advanced', icon: '🛠️', label: '高级' },
@@ -51,7 +56,8 @@ export default function SettingsPage() {
         ))}
       </div>
 
-      {tab === 'general' && <GeneralSettings />}
+      {tab === 'general' && <GeneralSettings t={t} />}
+      {tab === 'privacy' && <PrivacySettings t={t} />}
       {tab === 'llm' && <LLMSettings t={t} />}
       {tab === 'mcp' && <MCPSettings />}
       {tab === 'advanced' && <AdvancedSettings />}
@@ -63,7 +69,30 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
   return <div className={`bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-5 ${className}`}>{children}</div>;
 }
 
-function GeneralSettings() {
+function GeneralSettings(// eslint-disable-next-line @typescript-eslint/no-explicit-any
+{ t }: { t: any }) {
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [excludedApps, setExcludedApps] = useState<string[]>([]);
+  const [testMsg, setTestMsg] = useState('');
+
+  useEffect(() => {
+    getPushConfig().then(r => setPushEnabled(r.data.enabled)).catch(() => {});
+    getExcludedApps().then(r => setExcludedApps(r.data.apps)).catch(() => {});
+  }, []);
+
+  const handleTogglePush = useCallback(() => {
+    const next = !pushEnabled;
+    setPushEnabled(next);
+    setPushConfig(next).catch(() => setPushEnabled(!next));
+  }, [pushEnabled]);
+
+  const handleTestPush = useCallback(() => {
+    sendTestNotification().then(() => {
+      setTestMsg(t('settings.push_test_sent'));
+      setTimeout(() => setTestMsg(''), 3000);
+    });
+  }, [t]);
+
   return (
     <div className="space-y-4">
       <Card>
@@ -75,9 +104,173 @@ function GeneralSettings() {
           <div><span className="text-gray-400">Android</span><div className="font-medium dark:text-gray-200">Kotlin + Jetpack Compose</div></div>
         </div>
       </Card>
+
+      {/* Push Notifications */}
+      <Card>
+        <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3">{t('settings.push_enabled', '推送通知')}</h2>
+        <div className="flex items-center justify-between">
+          <span className="text-sm dark:text-gray-300">{t('settings.push_enabled', '启用推送通知')}</span>
+          <button
+            onClick={handleTogglePush}
+            className={`relative w-11 h-6 rounded-full transition-colors ${pushEnabled ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+          >
+            <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${pushEnabled ? 'translate-x-5' : ''}`} />
+          </button>
+        </div>
+        {pushEnabled && (
+          <div className="mt-3 flex items-center gap-3">
+            <button
+              onClick={handleTestPush}
+              className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-sm rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+            >
+              {t('settings.push_test', '发送测试通知')}
+            </button>
+            {testMsg && <span className="text-green-600 dark:text-green-400 text-sm">{testMsg}</span>}
+          </div>
+        )}
+      </Card>
+
+      {/* Excluded Apps */}
+      <Card>
+        <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-1">{t('settings.excluded_apps', '排除的应用')}</h2>
+        <p className="text-xs text-gray-400 mb-3">{t('settings.excluded_apps_desc', '排除列表在手机端设置')}</p>
+        {excludedApps.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {excludedApps.map(app => (
+              <span key={app} className="px-3 py-1 bg-gray-100 dark:bg-gray-800 text-sm rounded-full text-gray-600 dark:text-gray-400">
+                {app}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-400">{t('settings.no_excluded_apps', '暂无排除的应用')}</p>
+        )}
+      </Card>
+
       <Card>
         <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3">语言</h2>
         <p className="text-sm text-gray-600 dark:text-gray-400">使用左下角的语言切换按钮更改界面语言。</p>
+      </Card>
+    </div>
+  );
+}
+
+const RETENTION_OPTIONS = [7, 14, 30, 90, 365];
+
+function PrivacySettings(// eslint-disable-next-line @typescript-eslint/no-explicit-any
+{ t }: { t: any }) {
+  const [stats, setStats] = useState<DataStats | null>(null);
+  const [retentionDays, setRetentionDaysState] = useState(30);
+  const [clearing, setClearing] = useState(false);
+  const [clearMsg, setClearMsg] = useState('');
+
+  useEffect(() => {
+    getDataStats().then(r => setStats(r.data)).catch(() => {});
+    getRetentionDays().then(r => setRetentionDaysState(r.data.retention_days)).catch(() => {});
+  }, []);
+
+  const handleRetentionChange = useCallback((days: number) => {
+    setRetentionDaysState(days);
+    setRetentionDays(days).catch(() => {});
+  }, []);
+
+  const handleClearData = useCallback(() => {
+    if (!confirm(t('settings.clear_data_confirm', '确定要清除所有数据吗？此操作不可撤销！'))) return;
+    setClearing(true);
+    clearAllData().then(() => {
+      setClearMsg(t('settings.clear_data_success', '所有数据已清除'));
+      setTimeout(() => setClearMsg(''), 3000);
+      getDataStats().then(r => setStats(r.data)).catch(() => {});
+    }).finally(() => setClearing(false));
+  }, [t]);
+
+  const handleExport = useCallback(() => {
+    exportData().then(response => {
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `evatar-export-${new Date().toISOString().slice(0, 10)}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    });
+  }, []);
+
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Data Stats */}
+      <Card>
+        <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3">{t('settings.data_stats', '数据统计')}</h2>
+        <div className="grid grid-cols-3 gap-4 text-sm">
+          <div>
+            <span className="text-gray-400">{t('settings.total_photos', '总照片数')}</span>
+            <div className="text-2xl font-bold dark:text-gray-200">{stats?.total_photos ?? '-'}</div>
+          </div>
+          <div>
+            <span className="text-gray-400">{t('settings.total_memories', '总记忆数')}</span>
+            <div className="text-2xl font-bold dark:text-gray-200">{stats?.total_memories ?? '-'}</div>
+          </div>
+          <div>
+            <span className="text-gray-400">{t('settings.storage_used', '存储占用')}</span>
+            <div className="text-2xl font-bold dark:text-gray-200">{stats ? formatBytes(stats.storage_used_bytes) : '-'}</div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Data Retention */}
+      <Card>
+        <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-1">{t('settings.retention', '数据保留天数')}</h2>
+        <p className="text-xs text-gray-400 mb-4">{t('settings.retention_desc', '超过保留期的照片和分析数据将被自动清理')}</p>
+        <div className="flex items-center gap-2">
+          {RETENTION_OPTIONS.map(days => (
+            <button
+              key={days}
+              onClick={() => handleRetentionChange(days)}
+              className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                retentionDays === days
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+              }`}
+            >
+              {days}天
+            </button>
+          ))}
+        </div>
+      </Card>
+
+      {/* Export */}
+      <Card>
+        <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-1">{t('settings.export_data', '导出数据')}</h2>
+        <p className="text-xs text-gray-400 mb-3">{t('settings.export_data_desc', '导出所有照片、分析结果和记忆数据')}</p>
+        <button
+          onClick={handleExport}
+          className="w-full text-left px-4 py-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+        >
+          📥 {t('settings.export_data', '导出数据')}
+        </button>
+      </Card>
+
+      {/* Clear Data */}
+      <Card>
+        <h2 className="text-sm font-semibold text-red-500 dark:text-red-400 mb-1">{t('settings.clear_data', '清除所有数据')}</h2>
+        <p className="text-xs text-gray-400 mb-3">{t('settings.clear_data_confirm', '确定要清除所有数据吗？此操作不可撤销！')}</p>
+        <button
+          onClick={handleClearData}
+          disabled={clearing}
+          className="w-full text-left px-4 py-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm hover:bg-red-100 dark:hover:bg-red-900/40 disabled:opacity-40"
+        >
+          ⚠️ {clearing ? '...' : t('settings.clear_data', '清除所有数据')}
+        </button>
+        {clearMsg && <p className="text-green-600 dark:text-green-400 text-sm mt-2">{clearMsg}</p>}
       </Card>
     </div>
   );

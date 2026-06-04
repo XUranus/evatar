@@ -64,6 +64,9 @@ dependencies {
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
+    // WorkManager
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
+
     // Coil (image loading for Compose)
     implementation("io.coil-kt:coil-compose:2.6.0")
 

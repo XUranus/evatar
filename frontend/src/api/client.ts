@@ -204,3 +204,42 @@ export const getMemories = (page = 1, pageSize = 50, memoryType?: string) =>
 
 export const getMemoryStats = () =>
   api.get<{ total: number; short_term: number; long_term: number; categories: Record<string, number> }>('/memories/stats');
+
+// ── Privacy & Data ──
+
+export interface DataStats {
+  total_photos: number;
+  total_memories: number;
+  storage_used_bytes: number;
+}
+
+export interface RetentionConfig {
+  retention_days: number;
+}
+
+export const getDataStats = () => api.get<DataStats>('/data/stats');
+export const getRetentionDays = () => api.get<RetentionConfig>('/data/retention');
+export const setRetentionDays = (days: number) => api.put('/data/retention', { retention_days: days });
+export const clearAllData = () => api.post('/data/clear');
+export const exportData = () => api.get('/data/export', { responseType: 'blob' });
+
+// ── Push Notifications ──
+
+export interface PushConfig {
+  enabled: boolean;
+}
+
+export const getPushConfig = () => api.get<PushConfig>('/push/config');
+export const setPushConfig = (enabled: boolean) => api.put('/push/config', { enabled });
+export const registerPushToken = (token: string, platform: string) =>
+  api.post('/push/register', { token, platform });
+export const sendTestNotification = () => api.post('/push/test');
+
+// ── Dynamics extras ──
+
+export const markAllDynamicsRead = () => api.put('/dynamics/read-all');
+export const getDynamicsUnreadCount = () => api.get<{ unread_count: number }>('/dynamics/unread-count');
+
+// ── Excluded Apps ──
+
+export const getExcludedApps = () => api.get<{ apps: string[] }>('/config/excluded-apps');

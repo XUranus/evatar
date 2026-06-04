@@ -157,6 +157,20 @@ async def run_reasoning_cycle(device_id: str = None) -> list[dict]:
 
         db.commit()
         logger.info(f"Generated {len(saved)} dynamics: {[s['title'] for s in saved]}")
+
+        # Send push notification for new articles
+        if saved and device_id:
+            try:
+                from services.push import send_push
+                await send_push(
+                    device_id=device_id,
+                    title="Evatar 新笔记",
+                    body=f"为你生成了 {len(saved)} 篇新笔记",
+                    data={"count": len(saved)},
+                )
+            except Exception as push_err:
+                logger.warning(f"Push notification failed: {push_err}")
+
         return saved
 
     except json.JSONDecodeError:

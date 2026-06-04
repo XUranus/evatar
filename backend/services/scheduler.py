@@ -1,4 +1,4 @@
-"""Background scheduler for periodic tasks: reasoning, memory decay."""
+"""Background scheduler for periodic tasks: reasoning, memory decay, data retention."""
 
 import asyncio
 import logging
@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 from services.reasoner import run_reasoning_cycle
 from services.memory import decay_memories
+from services.retention import cleanup_old_data
 from models import SessionLocal
 
 logger = logging.getLogger("evatar.scheduler")
@@ -13,6 +14,7 @@ logger = logging.getLogger("evatar.scheduler")
 # Intervals in seconds
 REASONING_INTERVAL = 3600     # 1 hour
 MEMORY_DECAY_INTERVAL = 86400 # 24 hours
+RETENTION_INTERVAL = 86400    # 24 hours (daily)
 
 _running = False
 _task = None
@@ -24,6 +26,7 @@ async def _scheduler_loop():
     _running = True
     last_reasoning = datetime.min.replace(tzinfo=None)
     last_decay = datetime.min.replace(tzinfo=None)
+    last_retention = datetime.min.replace(tzinfo=None)
 
     logger.info("Scheduler started")
     while _running:
@@ -49,6 +52,18 @@ async def _scheduler_loop():
             finally:
                 db.close()
             last_decay = now
+
+        # Data retention cleanup
+        if (now - last_retention).total_seconds() >= RETENTION_INTERVAL:
+            db = SessionLocal()
+            try:
+                counts = cleanup_old_data(db)
+                logger.info(f"Retention cleanup completed: {counts}")
+            except Exception as e:
+                logger.error(f"Retention cleanup failed: {e}", exc_info=True)
+            finally:
+                db.close()
+            last_retention = now
 
         await asyncio.sleep(60)  # Check every minute
 

@@ -44,7 +44,8 @@ class Photo(Base):
     sync_time = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
-    analysis = relationship("Analysis", back_populates="photo", uselist=False)
+    analysis = relationship("Analysis", back_populates="photo", uselist=False,
+                            cascade="all, delete-orphan", lazy="selectin")
 
 
 class Analysis(Base):
@@ -56,7 +57,8 @@ class Analysis(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     photo_id = Column(Integer, ForeignKey("photos.id"), nullable=False)
-    status = Column(Enum(AnalysisStatus), default=AnalysisStatus.PENDING)
+    status = Column(Enum(AnalysisStatus, values_callable=lambda x: [e.value for e in x]),
+                    default=AnalysisStatus.PENDING)
     llm_response = Column(Text, nullable=True)
     app_name = Column(String(256), nullable=True)
     content_category = Column(String(256), nullable=True)
@@ -109,12 +111,21 @@ class ChatMessage(Base):
     conversation_id = Column(String(64), ForeignKey("conversations.id"), nullable=False)
     role = Column(String(32), nullable=False)
     content = Column(Text, nullable=True)
+    encrypted_content = Column(Text, nullable=True)  # Fernet-encrypted sensitive content
     tool_name = Column(String(64), nullable=True)
     tool_call_id = Column(String(128), nullable=True)
     tool_calls = Column(Text, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     conversation = relationship("Conversation", back_populates="messages")
+
+    @property
+    def display_content(self) -> str | None:
+        """Return decrypted content if encrypted_content is set, otherwise plain content."""
+        if self.encrypted_content:
+            from services.encryption import decrypt_field
+            return decrypt_field(self.encrypted_content)
+        return self.content
 
 
 class Skill(Base):
@@ -166,6 +177,7 @@ class Memory(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     content = Column(Text, nullable=False)
+    encrypted_content = Column(Text, nullable=True)  # Fernet-encrypted sensitive content
     memory_type = Column(String(32), nullable=False)     # short_term / long_term
     source_type = Column(String(32), nullable=False)     # chat / photo / inferred
     source_id = Column(String(128), nullable=True)       # conversation_id or photo_id
@@ -176,6 +188,28 @@ class Memory(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     last_accessed = Column(DateTime, nullable=True)
     expires_at = Column(DateTime, nullable=True)         # null = never expires
+
+    @property
+    def display_content(self) -> str:
+        """Return decrypted content if encrypted_content is set, otherwise plain content."""
+        if self.encrypted_content:
+            from services.encryption import decrypt_field
+            return decrypt_field(self.encrypted_content)
+        return self.content
+
+
+class DeviceToken(Base):
+    """Push notification device tokens (FCM)."""
+    __tablename__ = "device_tokens"
+    __table_args__ = (
+        Index("ix_device_tokens_device_id", "device_id"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    device_id = Column(String(256), nullable=False)
+    token = Column(String(1024), nullable=False, unique=True)
+    platform = Column(String(32), default="android")  # android / ios
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class Dynamic(Base):

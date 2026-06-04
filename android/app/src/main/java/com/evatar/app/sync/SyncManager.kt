@@ -6,6 +6,7 @@ import android.provider.MediaStore
 import android.provider.Settings
 import android.util.Log
 import com.evatar.app.network.ApiClient
+import com.evatar.app.settings.AppExclusionManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -25,6 +26,7 @@ class SyncManager(context: Context) {
 
     val apiClient = ApiClient.getInstance(context)
     private val appContext = context.applicationContext
+    private val exclusionManager = AppExclusionManager(context)
 
     val deviceId: String by lazy {
         "${Build.MANUFACTURER}_${Build.MODEL}_${
@@ -109,8 +111,15 @@ class SyncManager(context: Context) {
                 val dateCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_ADDED)
                 val mimeCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.MIME_TYPE)
 
+                val relPathIdx = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.RELATIVE_PATH)
+
                 while (cursor.moveToNext()) {
                     val path = cursor.getString(dataCol) ?: continue
+                    val relativePath = cursor.getString(relPathIdx) ?: ""
+
+                    // Skip screenshots from excluded apps
+                    if (isExcludedByPath(relativePath)) continue
+
                     results.add(
                         MediaStorePhoto(
                             id = cursor.getLong(idCol), filePath = path,
@@ -127,6 +136,15 @@ class SyncManager(context: Context) {
         }
 
         return results
+    }
+
+    private fun isExcludedByPath(relativePath: String): Boolean {
+        val exclusions = exclusionManager.getExclusions()
+        // Check if any excluded package name appears in the relative path
+        // e.g., "Pictures/com.android.settings/" would match "com.android.settings"
+        return exclusions.any { excluded ->
+            relativePath.contains(excluded, ignoreCase = true)
+        }
     }
 }
 

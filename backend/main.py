@@ -13,6 +13,7 @@ from api.chat import router as chat_router
 from api.skills import router as skills_router
 from api.dynamics import router as dynamics_router
 from api.memories import router as memories_router
+from api.push import router as push_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -77,6 +78,7 @@ app.include_router(chat_router)
 app.include_router(skills_router)
 app.include_router(dynamics_router)
 app.include_router(memories_router)
+app.include_router(push_router)
 
 
 @app.get("/")

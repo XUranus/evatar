@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import Markdown from 'react-markdown';
 import {
   getDynamics, markDynamicRead, toggleDynamicPin, deleteDynamic, triggerReasoning,
+  markAllDynamicsRead,
   type DynamicItem,
 } from '../api/client';
 
@@ -22,6 +23,7 @@ export default function DynamicsPage() {
   const [items, setItems] = useState<DynamicItem[]>([]);
   const [total, setTotal] = useState(0);
   const [filter, setFilter] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [expanded, setExpanded] = useState<number | null>(null);
   const [triggering, setTriggering] = useState(false);
 
@@ -38,13 +40,29 @@ export default function DynamicsPage() {
     setTriggering(true);
     try {
       await triggerReasoning();
-      setTimeout(load, 2000); // Wait for reasoning to complete
+      setTimeout(load, 2000);
     } finally {
       setTriggering(false);
     }
   };
 
+  const handleMarkAllRead = useCallback(() => {
+    markAllDynamicsRead().then(() => {
+      setItems(prev => prev.map(item => ({ ...item, is_read: true })));
+    });
+  }, []);
+
   const categories = ['', 'insight', 'reminder', 'report', 'note'];
+
+  const filteredItems = searchQuery.trim()
+    ? items.filter(item =>
+        item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.summary.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.content.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : items;
+
+  const unreadCount = items.filter(item => !item.is_read).length;
 
   return (
     <div className="space-y-4">
@@ -66,6 +84,14 @@ export default function DynamicsPage() {
               {c ? `${categoryIcons[c]} ${t(`dynamic.categories.${c}`, c)}` : t('dynamic.all', '全部')}
             </button>
           ))}
+          {unreadCount > 0 && (
+            <button
+              onClick={handleMarkAllRead}
+              className="px-3 py-1 bg-green-500 text-white rounded-full text-sm hover:bg-green-600"
+            >
+              ✓ {t('dynamic.mark_all_read', '全部标为已读')}
+            </button>
+          )}
           <button
             onClick={handleTrigger}
             disabled={triggering}
@@ -76,7 +102,19 @@ export default function DynamicsPage() {
         </div>
       </div>
 
-      {items.length === 0 ? (
+      {/* Search bar */}
+      <div className="relative">
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          placeholder={t('dynamic.search_placeholder', '搜索动态...')}
+          className="w-full px-4 py-2.5 pl-10 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500"
+        />
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
+      </div>
+
+      {filteredItems.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-64 text-gray-400 dark:text-gray-500">
           <div className="text-4xl mb-4">📝</div>
           <div className="text-lg">{t('dynamic.empty', '暂无动态')}</div>
@@ -84,7 +122,7 @@ export default function DynamicsPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {items.map(item => (
+          {filteredItems.map(item => (
             <DynamicCard
               key={item.id}
               item={item}
@@ -101,9 +139,9 @@ export default function DynamicsPage() {
         </div>
       )}
 
-      {total > items.length && (
+      {total > filteredItems.length && (
         <div className="text-center text-sm text-gray-400">
-          {t('dynamic.showing', { shown: items.length, total, defaultValue: `显示 ${items.length}/${total}` })}
+          {t('dynamic.showing', { shown: filteredItems.length, total, defaultValue: `显示 ${filteredItems.length}/${total}` })}
         </div>
       )}
     </div>

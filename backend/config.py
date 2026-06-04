@@ -34,6 +34,17 @@ class Settings(BaseSettings):
     tavily_api_key: str = ""
     brave_api_key: str = ""
 
+    # Encryption (optional - auto-generates key if not set)
+    encryption_key: str = ""
+
+    # Data retention
+    retention_days: int = 30
+
+    # Push notifications (FCM HTTP v1)
+    fcm_project_id: str = ""
+    fcm_credentials_json: str = ""  # Path to service account JSON or inline JSON
+    push_webhook_url: str = ""      # Fallback webhook URL if FCM not configured
+
     class Config:
         env_prefix = "EVATAR_"
 

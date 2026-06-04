@@ -36,4 +36,25 @@
     <string name="notification_keepalive_channel">Background Keep-alive</string>
     <string name="notification_sync_title">Evatar Sync</string>
     <string name="notification_keepalive_title">Evatar Keep-alive</string>
+
+    <!-- Sync controls -->
+    <string name="btn_manual_sync">Manual Sync</string>
+    <string name="btn_force_sync">Force Sync</string>
+    <string name="btn_stop_force_sync">Stop Force Sync</string>
+
+    <!-- Share -->
+    <string name="share_success">Shared to Evatar</string>
+    <string name="share_image_failed">Failed to share image</string>
+    <string name="share_text_failed">Failed to share text</string>
+    <string name="share_no_image">No image found</string>
+    <string name="share_no_text">No text content found</string>
+    <string name="share_unsupported_type">Unsupported share type</string>
+
+    <!-- App Exclusion -->
+    <string name="setting_exclusion_title">Excluded Apps</string>
+    <string name="setting_exclusion_desc">Exclude screenshots from specified apps. They will not be synced to the server.</string>
+    <string name="setting_exclusion_remove">Remove</string>
+    <string name="setting_exclusion_empty">No excluded apps</string>
+    <string name="setting_exclusion_input_label">Package name</string>
+    <string name="setting_exclusion_add">Add</string>
 </resources>

@@ -36,3 +36,11 @@ Thumbs.db
 
 # Claude
 .claude/
+
+# Test artifacts
+backend/.test_runs/
+backend/data/
+backend/.encryption_key
+
+# Kotlin
+android/.kotlin/

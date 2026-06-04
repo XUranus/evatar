@@ -75,13 +75,19 @@ async def process_photo(photo_id: int):
         analysis.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
         logger.info(f"Photo {photo_id} analyzed: intent={analysis.intent}")
 
-        # Extract memories from the analysis
-        try:
-            from services.memory import extract_memories_from_text
-            mem_text = f"截图应用:{parsed.get('app_name','')} 分类:{parsed.get('content_category','')} 摘要:{parsed.get('summary','')} 实体:{parsed.get('entities','')}"
-            await extract_memories_from_text(mem_text, "photo", str(photo_id), photo.device_id or "", db)
-        except Exception as me:
-            logger.warning(f"Memory extraction from photo failed: {me}")
+        # Skip memory extraction for low-relevance screenshots
+        relevance = parsed.get("relevance", "high")
+        confidence = parsed.get("confidence", 1)
+        if relevance == "low" and confidence < 0.3:
+            logger.info(f"Skipping low-relevance screenshot {photo_id}")
+        else:
+            # Extract memories from the analysis
+            try:
+                from services.memory import extract_memories_from_text
+                mem_text = f"截图应用:{parsed.get('app_name','')} 分类:{parsed.get('content_category','')} 摘要:{parsed.get('summary','')} 实体:{parsed.get('entities','')}"
+                await extract_memories_from_text(mem_text, "photo", str(photo_id), photo.device_id or "", db)
+            except Exception as me:
+                logger.warning(f"Memory extraction from photo failed: {me}")
 
     except Exception as e:
         logger.error(f"Failed to analyze photo {photo_id}: {e}", exc_info=True)

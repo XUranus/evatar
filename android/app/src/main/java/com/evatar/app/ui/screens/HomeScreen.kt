@@ -23,6 +23,7 @@ import com.evatar.app.keepalive.KeepAliveService
 import com.evatar.app.sync.SyncManager
 import com.evatar.app.sync.SyncResult
 import com.evatar.app.sync.SyncService
+import com.evatar.app.sync.WorkScheduler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -35,7 +36,8 @@ fun HomeScreen(modifier: Modifier = Modifier) {
     val syncManager = remember { SyncManager(context.applicationContext) }
 
     var serverConnected by remember { mutableStateOf(false) }
-    var isSyncRunning by remember { mutableStateOf(false) }
+    var isWorkManagerSync by remember { mutableStateOf(WorkScheduler.isScheduled(context)) }
+    var isForegroundSyncRunning by remember { mutableStateOf(false) }
     var isKeepAliveRunning by remember { mutableStateOf(false) }
     var isSyncing by remember { mutableStateOf(false) }
     var lastResult by remember { mutableStateOf<SyncResult?>(null) }
@@ -54,10 +56,10 @@ fun HomeScreen(modifier: Modifier = Modifier) {
         scope.launch {
             val connected = withContext(Dispatchers.IO) { syncManager.apiClient.checkHealth() }
             serverConnected = connected
-            if (connected && !isSyncRunning && !autoSyncTriggered) {
+            if (connected && !isWorkManagerSync && !autoSyncTriggered) {
                 autoSyncTriggered = true
-                SyncService.start(context)
-                isSyncRunning = true
+                WorkScheduler.schedulePeriodicSync(context)
+                isWorkManagerSync = true
             }
         }
     }
@@ -139,24 +141,24 @@ fun HomeScreen(modifier: Modifier = Modifier) {
             }
         }
 
-        // Sync controls
+        // Sync controls - WorkManager (default)
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 onClick = {
-                    if (isSyncRunning) {
-                        SyncService.stop(context); isSyncRunning = false; autoSyncTriggered = false
+                    if (isWorkManagerSync) {
+                        WorkScheduler.cancelSync(context); isWorkManagerSync = false; autoSyncTriggered = false
                     } else {
-                        SyncService.start(context); isSyncRunning = true
+                        WorkScheduler.schedulePeriodicSync(context); isWorkManagerSync = true
                     }
                 },
-                enabled = serverConnected || isSyncRunning,
+                enabled = serverConnected || isWorkManagerSync,
                 modifier = Modifier.weight(1f),
-                colors = if (isSyncRunning) ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                colors = if (isWorkManagerSync) ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 else ButtonDefaults.buttonColors()
             ) {
-                Icon(if (isSyncRunning) Icons.Default.Stop else Icons.Default.PlayArrow, contentDescription = null)
+                Icon(if (isWorkManagerSync) Icons.Default.Stop else Icons.Default.PlayArrow, contentDescription = null)
                 Spacer(modifier = Modifier.width(4.dp))
-                Text(if (isSyncRunning) stringResource(R.string.btn_stop_sync) else stringResource(R.string.btn_start_sync))
+                Text(if (isWorkManagerSync) stringResource(R.string.btn_stop_sync) else stringResource(R.string.btn_start_sync))
             }
             OutlinedButton(
                 onClick = {
@@ -171,8 +173,24 @@ fun HomeScreen(modifier: Modifier = Modifier) {
             ) {
                 Icon(Icons.Default.Sync, contentDescription = null)
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("手动同步")
+                Text(stringResource(R.string.btn_manual_sync))
             }
+        }
+
+        // Foreground service as optional force sync
+        OutlinedButton(
+            onClick = {
+                if (isForegroundSyncRunning) {
+                    SyncService.stop(context); isForegroundSyncRunning = false
+                } else {
+                    SyncService.start(context); isForegroundSyncRunning = true
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(if (isForegroundSyncRunning) Icons.Default.Stop else Icons.Default.PlayArrow, contentDescription = null)
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(if (isForegroundSyncRunning) stringResource(R.string.btn_stop_force_sync) else stringResource(R.string.btn_force_sync))
         }
 
         // Keep-alive

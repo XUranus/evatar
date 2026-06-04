@@ -44,6 +44,23 @@
             </intent-filter>
         </activity>
 
+        <!-- Share receiver -->
+        <activity
+            android:name=".ui.ShareReceiverActivity"
+            android:theme="@style/Theme.Evatar"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
         <!-- Sync foreground service -->
         <service
             android:name=".sync.SyncService"
