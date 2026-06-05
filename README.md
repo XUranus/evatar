@@ -31,7 +31,7 @@ pip install -r requirements.txt
 python main.py
 ```
 
-Backend runs at `http://localhost:8000`.
+Backend runs at `http://localhost:8421`.
 
 ### 2. Start Frontend
 
@@ -53,7 +53,7 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 
 ### 4. Usage
 
-1. Open the Android app, configure server URL (default: `http://localhost:8000`)
+1. Open the Android app, configure server URL (default: `http://localhost:8421`)
 2. Ensure server is connected (status card shows green)
 3. Tap "Start Sync"
 4. Screenshots are auto-uploaded and analyzed by the LLM

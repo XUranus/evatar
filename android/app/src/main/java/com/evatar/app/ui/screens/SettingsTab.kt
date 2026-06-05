@@ -105,7 +105,7 @@ fun SettingsTab(
                     value = urlField,
                     onValueChange = { urlField = it; saved = false; urlError = null },
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("http://192.168.0.107:8000", style = EvatarTypography.subheadline) },
+                    placeholder = { Text("http://192.168.0.107:8421", style = EvatarTypography.subheadline) },
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
                     textStyle = EvatarTypography.body,

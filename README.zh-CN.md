@@ -31,7 +31,7 @@ pip install -r requirements.txt
 python main.py
 ```
 
-后端运行在 `http://localhost:8000`
+后端运行在 `http://localhost:8421`
 
 ### 2. 启动前端
 
@@ -53,7 +53,7 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 
 ### 4. 使用
 
-1. 打开 Android 应用，配置服务端地址（默认 `http://localhost:8000`）
+1. 打开 Android 应用，配置服务端地址（默认 `http://localhost:8421`）
 2. 确保服务端已连接（状态卡片显示绿色）
 3. 点击「开始同步」
 4. 手机截图会自动上传并由 LLM 分析

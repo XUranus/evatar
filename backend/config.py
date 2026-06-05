@@ -8,7 +8,7 @@ BASE_DIR = Path(__file__).resolve().parent
 class Settings(BaseSettings):
     # Server
     host: str = "0.0.0.0"
-    port: int = 8000
+    port: int = 8421
 
     # Auth
     api_key: str = ""  # Set via EVATAR_API_KEY env var; empty = no auth (dev only)

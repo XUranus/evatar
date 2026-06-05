@@ -62,7 +62,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-_DEFAULT_CORS = ["http://localhost:3000", "http://localhost:5173", "http://localhost:8000"]
+_DEFAULT_CORS = ["http://localhost:3000", "http://localhost:5173", "http://localhost:8421"]
 _cors_origins = (
     [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
     if settings.cors_origins
