@@ -41,12 +41,20 @@ fun DynamicTab(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val apiClient = remember { ApiClient.getInstance(context) }
+    val syncManager = remember { com.evatar.app.sync.SyncManager(context) }
 
     var items by remember { mutableStateOf(listOf<UiDynamic>()) }
     var expandedId by remember { mutableIntStateOf(-1) }
     var filter by remember { mutableStateOf("") }
     var triggering by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(true) }
+    var serverConnected by remember { mutableStateOf(false) }
+    var isSyncing by remember { mutableStateOf(false) }
+
+    // Auto-check connection once
+    LaunchedEffect(Unit) {
+        serverConnected = withContext(Dispatchers.IO) { apiClient.checkHealth() }
+    }
 
     fun load() {
         scope.launch {
@@ -72,13 +80,46 @@ fun DynamicTab(modifier: Modifier = Modifier) {
     LaunchedEffect(filter) { load() }
 
     Column(modifier = modifier.fillMaxSize()) {
-        // Large title
-        Text(
-            "动态",
-            style = EvatarTypography.largeTitle,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 4.dp)
-        )
+        // Header with connection indicator and sync button
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 16.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("动态", style = EvatarTypography.largeTitle, color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.weight(1f))
+
+            // Connection dot
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(if (serverConnected) EvatarColors.DarkSuccess else EvatarColors.DarkError)
+            )
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // Sync button
+            IconButton(
+                onClick = {
+                    if (!isSyncing) {
+                        scope.launch {
+                            isSyncing = true
+                            withContext(Dispatchers.IO) { syncManager.runSync() }
+                            load() // refresh dynamics after sync
+                            isSyncing = false
+                        }
+                    }
+                },
+                enabled = serverConnected && !isSyncing,
+                modifier = Modifier.size(36.dp),
+            ) {
+                if (isSyncing) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                } else {
+                    Icon(Icons.Outlined.Refresh, contentDescription = "同步", modifier = Modifier.size(20.dp))
+                }
+            }
+        }
 
         // Filter chips
         LazyRow(

@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -16,6 +17,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -23,8 +25,16 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.evatar.app.R
+import com.evatar.app.keepalive.KeepAliveService
 import com.evatar.app.network.ApiClient
+import com.evatar.app.sync.SyncManager
+import com.evatar.app.sync.SyncResult
+import com.evatar.app.sync.SyncService
+import com.evatar.app.ui.theme.EvatarColors
 import com.evatar.app.ui.theme.EvatarTypography
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun SettingsTab(
@@ -33,16 +43,36 @@ fun SettingsTab(
     onThemeChange: (String) -> Unit = {},
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val apiClient = remember { ApiClient.getInstance(context) }
+    val syncManager = remember { SyncManager(context) }
+
     var serverUrl by remember { mutableStateOf(apiClient.getServerUrl()) }
     var urlField by remember { mutableStateOf(serverUrl) }
     var saved by remember { mutableStateOf(false) }
     var urlError by remember { mutableStateOf<String?>(null) }
+    var serverConnected by remember { mutableStateOf(false) }
+    var lastResult by remember { mutableStateOf<SyncResult?>(null) }
+    var isSyncing by remember { mutableStateOf(false) }
+    var isKeepAliveRunning by remember { mutableStateOf(false) }
+
+    val overlayLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+    ) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(context)) {
+            KeepAliveService.start(context)
+            isKeepAliveRunning = true
+        }
+    }
+
+    // Check connection on first load
+    LaunchedEffect(Unit) {
+        serverConnected = withContext(Dispatchers.IO) { apiClient.checkHealth() }
+    }
 
     Column(
         modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState())
     ) {
-        // Large title
         Text(
             stringResource(R.string.settings_title),
             style = EvatarTypography.largeTitle,
@@ -50,47 +80,146 @@ fun SettingsTab(
             modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 8.dp)
         )
 
-        // Server URL section
-        SectionHeader("服务端")
+        // ── Server section ──
+        SectionHeader(stringResource(R.string.setting_server_url))
         SettingsGroup {
-            SettingsTextField(
-                label = stringResource(R.string.setting_server_url),
-                value = urlField,
-                onValueChange = { urlField = it; saved = false },
-                placeholder = "http://192.168.0.107:8000",
-            )
-            SettingsAction(
-                label = stringResource(R.string.setting_save),
-                onClick = {
-                    val trimmed = urlField.trim()
-                    when {
-                        trimmed.isEmpty() -> { urlError = "请输入服务端地址"; saved = false }
-                        !trimmed.startsWith("http://") && !trimmed.startsWith("https://") -> {
-                            urlError = "地址必须以 http:// 或 https:// 开头"; saved = false
+            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                // Connection status
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(if (serverConnected) EvatarColors.DarkSuccess else EvatarColors.DarkError)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        if (serverConnected) stringResource(R.string.server_connected)
+                        else stringResource(R.string.server_disconnected),
+                        style = EvatarTypography.subheadline,
+                        color = if (serverConnected) EvatarColors.DarkSuccess else EvatarColors.DarkError,
+                    )
+                }
+
+                OutlinedTextField(
+                    value = urlField,
+                    onValueChange = { urlField = it; saved = false; urlError = null },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("http://192.168.0.107:8000", style = EvatarTypography.subheadline) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    textStyle = EvatarTypography.body,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = {
+                        val trimmed = urlField.trim()
+                        when {
+                            trimmed.isEmpty() -> { urlError = "请输入服务端地址" }
+                            !trimmed.startsWith("http://") && !trimmed.startsWith("https://") -> {
+                                urlError = "地址必须以 http:// 或 https:// 开头"
+                            }
+                            else -> {
+                                urlError = null
+                                apiClient.setServerUrl(trimmed)
+                                serverUrl = trimmed
+                                saved = true
+                                // Re-check connection
+                                scope.launch {
+                                    serverConnected = withContext(Dispatchers.IO) { apiClient.checkHealth() }
+                                }
+                            }
                         }
-                        else -> {
-                            urlError = null
-                            apiClient.setServerUrl(trimmed)
-                            serverUrl = trimmed
-                            saved = true
-                        }
-                    }
-                },
-            )
-            if (saved) {
-                Text("已保存", style = EvatarTypography.caption1, color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(start = 56.dp, bottom = 8.dp))
-            }
-            if (urlError != null) {
-                Text(urlError!!, style = EvatarTypography.caption1, color = com.evatar.app.ui.theme.EvatarColors.DarkError,
-                    modifier = Modifier.padding(start = 56.dp, bottom = 8.dp))
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Text(stringResource(R.string.setting_save))
+                }
+                if (saved) {
+                    Text("已保存", style = EvatarTypography.caption1, color = EvatarColors.DarkSuccess,
+                        modifier = Modifier.padding(top = 4.dp))
+                }
+                if (urlError != null) {
+                    Text(urlError!!, style = EvatarTypography.caption1, color = EvatarColors.DarkError,
+                        modifier = Modifier.padding(top = 4.dp))
+                }
             }
         }
 
-        // System section
-        SectionHeader("系统")
+        // ── Sync section ──
+        SectionHeader(stringResource(R.string.sync_stats))
         SettingsGroup {
-            // Theme toggle
+            Column(modifier = Modifier.padding(16.dp)) {
+                // Last sync result
+                if (lastResult != null) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        MiniStat(stringResource(R.string.stat_synced), lastResult!!.success, EvatarColors.DarkSuccess)
+                        MiniStat(stringResource(R.string.stat_errors), lastResult!!.failed, EvatarColors.DarkError)
+                        MiniStat(stringResource(R.string.stat_total), lastResult!!.total, MaterialTheme.colorScheme.onSurface)
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
+                // Sync controls
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                isSyncing = true
+                                lastResult = withContext(Dispatchers.IO) { syncManager.runSync() }
+                                isSyncing = false
+                            }
+                        },
+                        enabled = serverConnected && !isSyncing,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                    ) {
+                        if (isSyncing) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color.White)
+                            Spacer(modifier = Modifier.width(6.dp))
+                        }
+                        Text(if (isSyncing) "同步中..." else "手动同步")
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            if (isKeepAliveRunning) {
+                                KeepAliveService.stop(context)
+                                isKeepAliveRunning = false
+                            } else {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(context)) {
+                                    overlayLauncher.launch(
+                                        Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                            Uri.parse("package:${context.packageName}"))
+                                    )
+                                } else {
+                                    KeepAliveService.start(context)
+                                    isKeepAliveRunning = true
+                                }
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                    ) {
+                        Text(if (isKeepAliveRunning) "关闭悬浮窗" else "悬浮窗保活")
+                    }
+                }
+
+                if (!serverConnected) {
+                    Text(
+                        stringResource(R.string.hint_connect_server),
+                        style = EvatarTypography.caption1,
+                        color = EvatarColors.DarkError,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+            }
+        }
+
+        // ── Theme section ──
+        SectionHeader("外观")
+        SettingsGroup {
             SettingsRow(
                 icon = Icons.Outlined.Brightness6,
                 label = stringResource(R.string.setting_theme),
@@ -100,15 +229,15 @@ fun SettingsTab(
                     else -> stringResource(R.string.setting_theme_system)
                 },
                 onClick = {
-                    val next = when (themeMode) {
-                        "dark" -> "light"
-                        "light" -> "system"
-                        else -> "dark"
-                    }
+                    val next = when (themeMode) { "dark" -> "light"; "light" -> "system"; else -> "dark" }
                     onThemeChange(next)
                 },
             )
+        }
 
+        // ── System section ──
+        SectionHeader("系统")
+        SettingsGroup {
             SettingsRow(
                 icon = Icons.Outlined.BatteryChargingFull,
                 label = stringResource(R.string.setting_battery),
@@ -136,16 +265,22 @@ fun SettingsTab(
             )
         }
 
-        // About section
+        // ── About section ──
         SectionHeader(stringResource(R.string.setting_about))
         SettingsGroup {
             SettingsInfo("版本", "0.3.0")
-            SettingsInfo("后端", "FastAPI + SQLite")
-            SettingsInfo("前端", "React + Vite + Tailwind")
-            SettingsInfo("Android", "Kotlin + Jetpack Compose")
+            SettingsInfo("设备ID", syncManager.deviceId.take(24) + "...")
         }
 
         Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun MiniStat(label: String, value: Int, color: Color) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(value.toString(), style = EvatarTypography.title2, fontWeight = FontWeight.Bold, color = color)
+        Text(label, style = EvatarTypography.caption1, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -166,9 +301,7 @@ private fun SettingsGroup(content: @Composable ColumnScope.() -> Unit) {
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
-        Column(modifier = Modifier.padding(vertical = 4.dp)) {
-            content()
-        }
+        Column(modifier = Modifier.padding(vertical = 4.dp)) { content() }
     }
 }
 
@@ -180,10 +313,7 @@ private fun SettingsRow(
     onClick: () -> Unit,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier = Modifier.fillMaxWidth().clickable { onClick() }.padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
@@ -198,42 +328,6 @@ private fun SettingsRow(
             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f), modifier = Modifier.size(18.dp))
     }
     HorizontalDivider(modifier = Modifier.padding(start = 52.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-}
-
-@Composable
-private fun SettingsTextField(
-    label: String,
-    value: String,
-    onValueChange: (String) -> Unit,
-    placeholder: String = "",
-) {
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Text(label, style = EvatarTypography.caption1, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(modifier = Modifier.height(4.dp))
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text(placeholder, style = EvatarTypography.subheadline) },
-            singleLine = true,
-            shape = RoundedCornerShape(12.dp),
-            textStyle = EvatarTypography.body,
-        )
-    }
-}
-
-@Composable
-private fun SettingsAction(label: String, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Spacer(modifier = Modifier.width(36.dp))
-        Text(label, style = EvatarTypography.body, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
-    }
 }
 
 @Composable

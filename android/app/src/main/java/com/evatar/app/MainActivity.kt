@@ -37,6 +37,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         requestPermissions()
 
+        // Auto-start sync service
+        com.evatar.app.sync.SyncService.start(this)
+
         setContent {
             val prefs = remember { getSharedPreferences(PREF_NAME, MODE_PRIVATE) }
             var themeMode by remember { mutableStateOf(prefs.getString(KEY_THEME, "dark") ?: "dark") }
