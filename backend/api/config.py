@@ -1,5 +1,6 @@
 import re
 import ipaddress
+import socket
 import urllib.parse
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
@@ -91,7 +92,28 @@ def _validate_base_url(url: str):
         if addr.is_private or addr.is_loopback or addr.is_link_local:
             raise HTTPException(status_code=400, detail="base_url must not point to a private/localhost address")
     except ValueError:
-        pass  # Not an IP address literal, hostname check above is sufficient
+        pass  # Not an IP address literal, continue to DNS resolution check
+
+    # DNS rebinding defense: resolve hostname and verify ALL resolved IPs
+    try:
+        resolved_addrs = socket.getaddrinfo(hostname, 0, proto=socket.IPPROTO_TCP)
+        for family, _, _, _, sockaddr in resolved_addrs:
+            ip_str = sockaddr[0]
+            try:
+                addr = ipaddress.ip_address(ip_str)
+                if addr.is_private or addr.is_loopback or addr.is_link_local:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="base_url resolves to a private/localhost address (DNS rebinding detected)",
+                    )
+            except ValueError:
+                continue  # skip unparseable addresses
+    except HTTPException:
+        raise
+    except socket.gaierror:
+        raise HTTPException(status_code=400, detail="base_url hostname could not be resolved")
+    except Exception:
+        pass  # non-critical; other checks already passed
 
 
 @router.put("/llm")
@@ -111,8 +133,12 @@ def list_presets():
     return {"presets": PRESETS}
 
 
+class PresetApplyRequest(BaseModel):
+    api_key: str = ""
+
+
 @router.post("/llm/presets/{name}/apply")
-def apply_preset(name: str, api_key: str = "", db: Session = Depends(get_db)):
+def apply_preset(name: str, body: PresetApplyRequest = PresetApplyRequest(), db: Session = Depends(get_db)):
     if name not in PRESETS:
         raise HTTPException(status_code=404, detail=f"Unknown preset: {name}")
 
@@ -122,8 +148,8 @@ def apply_preset(name: str, api_key: str = "", db: Session = Depends(get_db)):
     cfg.base_url = preset["base_url"]
     cfg.model = preset["model"]
     cfg.max_context_tokens = preset["max_context_tokens"]
-    if api_key:
-        cfg.api_key = api_key
+    if body.api_key:
+        cfg.api_key = body.api_key
     cfg.updated_at = datetime.now(timezone.utc)
     db.commit()
     return {"message": f"Applied preset: {name}", "provider": cfg.provider}

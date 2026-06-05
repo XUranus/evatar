@@ -49,6 +49,13 @@ def _fts_search(db: Session, query: str, limit: int) -> list[dict]:
             if fts_count < analysis_count:
                 _build_fts_index(db)
 
+        # Verify FTS table is visible in this session
+        try:
+            db.execute(text("SELECT count(*) FROM analysis_fts")).scalar()
+        except Exception:
+            logger.debug("FTS table not visible in caller session, falling back to keyword search")
+            return []
+
         fts_query = _sanitize_fts_query(query)
         if not fts_query:
             return []
@@ -77,22 +84,22 @@ def _build_fts_index(db: Session):
     # Use a separate session to avoid flushing the caller's pending changes
     rebuild_db = SessionLocal()
     try:
-        try:
-            rebuild_db.execute(text("DROP TABLE IF EXISTS analysis_fts"))
-        except Exception:
-            rebuild_db.rollback()
-            logger.debug("FTS table did not exist, creating fresh")
+        # Create temp table first, then swap to avoid data loss on failure
+        rebuild_db.execute(text("DROP TABLE IF EXISTS analysis_fts_tmp"))
         rebuild_db.execute(text("""
-            CREATE VIRTUAL TABLE IF NOT EXISTS analysis_fts USING fts5(
+            CREATE VIRTUAL TABLE analysis_fts_tmp USING fts5(
                 summary, app_name, content_category, intent, entities,
                 content='analyses', content_rowid='id'
             )
         """))
         rebuild_db.execute(text("""
-            INSERT INTO analysis_fts(rowid, summary, app_name, content_category, intent, entities)
+            INSERT INTO analysis_fts_tmp(rowid, summary, app_name, content_category, intent, entities)
             SELECT id, summary, app_name, content_category, intent, entities
             FROM analyses WHERE status = 'done'
         """))
+        # Swap: drop old table, rename temp
+        rebuild_db.execute(text("DROP TABLE IF EXISTS analysis_fts"))
+        rebuild_db.execute(text("ALTER TABLE analysis_fts_tmp RENAME TO analysis_fts"))
         rebuild_db.commit()
         logger.info("FTS5 index built")
     except Exception as e:

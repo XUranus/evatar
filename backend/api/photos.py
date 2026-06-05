@@ -108,7 +108,7 @@ def _save_upload(
 def _resolve_path(path_str: str, photos_dir: Path) -> str:
     """Validate that a file path is within photos_dir."""
     resolved = Path(path_str).resolve()
-    if not str(resolved).startswith(str(photos_dir.resolve())):
+    if not resolved.is_relative_to(photos_dir.resolve()):
         raise HTTPException(status_code=403, detail="Path outside photos directory")
     return str(resolved)
 
@@ -295,7 +295,7 @@ async def delete_photo(photo_id: int, db: Session = Depends(get_db)):
     for p in [photo.original_path, photo.thumbnail_path]:
         if p and os.path.exists(p):
             resolved = Path(p).resolve()
-            if str(resolved).startswith(str(settings.photos_dir.resolve())):
+            if resolved.is_relative_to(settings.photos_dir.resolve()):
                 try:
                     os.remove(resolved)
                 except OSError as e:

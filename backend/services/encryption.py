@@ -73,7 +73,7 @@ def encrypt_field(plaintext: str | None, key: str | None = None) -> str | None:
 
 
 def decrypt_field(ciphertext: str | None) -> str | None:
-    """Decrypt a ciphertext string. Returns plaintext, or None if input is None."""
+    """Decrypt a ciphertext string. Returns plaintext, None if input is None or decryption fails."""
     if ciphertext is None:
         return None
     if not ciphertext:
@@ -83,10 +83,10 @@ def decrypt_field(ciphertext: str | None) -> str | None:
         return f.decrypt(ciphertext.encode("utf-8")).decode("utf-8")
     except InvalidToken:
         logger.warning("Failed to decrypt field: invalid token or wrong key")
-        return "[encrypted: unable to decrypt]"
+        return None
     except Exception as e:
         logger.warning(f"Decryption error: {e}")
-        return "[encrypted: unable to decrypt]"
+        return None
 
 
 def rotate_key(old_key: str, new_key: str) -> None:

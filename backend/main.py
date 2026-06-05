@@ -29,15 +29,26 @@ async def lifespan(app: FastAPI):
         if not settings.dev_mode:
             logger.critical(
                 "\n"
-                "╔══════════════════════════════════════════════════════════════╗\n"
-                "║  SECURITY WARNING: EVATAR_API_KEY is not set!              ║\n"
-                "║  Running in PRODUCTION mode without authentication.        ║\n"
-                "║  All endpoints are publicly accessible.                    ║\n"
-                "║  Set EVATAR_API_KEY immediately or set EVATAR_DEV_MODE=true ║\n"
-                "╚══════════════════════════════════════════════════════════════╝"
+                "╔══════════════════════════════════════════════════════════════════╗\n"
+                "║  SECURITY WARNING: EVATAR_API_KEY is not set!                  ║\n"
+                "║  Running in PRODUCTION mode without authentication.            ║\n"
+                "║  All endpoints are publicly accessible.                        ║\n"
+                "║  Set EVATAR_API_KEY or EVATAR_DEV_MODE=true immediately.      ║\n"
+                "╚══════════════════════════════════════════════════════════════════╝"
             )
         else:
             logger.warning("API key not set! Endpoints are unauthenticated. Set EVATAR_API_KEY for production.")
+
+    if not settings.llm_api_key and not settings.dev_mode:
+        logger.critical(
+            "\n"
+            "╔══════════════════════════════════════════════════════════════════╗\n"
+            "║  WARNING: EVATAR_LLM_API_KEY is not set!                       ║\n"
+            "║  LLM analysis features will fail without a valid API key.      ║\n"
+            "║  Set EVATAR_LLM_API_KEY or EVATAR_DEV_MODE=true.              ║\n"
+            "╚══════════════════════════════════════════════════════════════════╝"
+        )
+
     init_db()
     logger.info(f"Database initialized at {settings.db_path}")
     logger.info(f"LLM: {settings.llm_base_url}, model: {settings.llm_model}")
@@ -73,7 +84,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
     allow_credentials=False,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 

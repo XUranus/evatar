@@ -5,6 +5,7 @@ from sqlalchemy import (
     Boolean, ForeignKey, create_engine, UniqueConstraint, Index
 )
 from sqlalchemy.orm import DeclarativeBase, Session, relationship, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 import logging
 
@@ -98,8 +99,7 @@ class Conversation(Base):
     title = Column(String(256), default="新对话")
     device_id = Column(String(256), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
-                        onupdate=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     messages = relationship("ChatMessage", back_populates="conversation",
                             order_by="ChatMessage.created_at", cascade="all, delete-orphan")
@@ -199,7 +199,7 @@ class Memory(Base):
         """Return decrypted content if encrypted_content is set, otherwise plain content."""
         if self.encrypted_content:
             from services.encryption import decrypt_field
-            return decrypt_field(self.encrypted_content)
+            return decrypt_field(self.encrypted_content) or ""
         return self.content
 
 
@@ -240,7 +240,12 @@ class Dynamic(Base):
 
 
 # Database setup
-engine = create_engine(settings.db_url, echo=False, connect_args={"check_same_thread": False})
+engine = create_engine(
+    settings.db_url,
+    echo=False,
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
 
 

@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import joinedload
 
@@ -128,6 +129,7 @@ async def chat(
 
     user_msg = ChatMessage(conversation_id=conversation_id, role="user", content=user_message)
     db.add(user_msg)
+    conv.updated_at = datetime.now(timezone.utc)
     db.flush()
 
     history = _build_history(db, conversation_id)
@@ -177,6 +179,7 @@ async def chat(
         if not tool_calls:
             if conv.title == "新对话" and user_message:
                 conv.title = user_message[:50]
+            conv.updated_at = datetime.now(timezone.utc)
             db.commit()
 
             # Extract memories from this conversation turn (async, with own session)
@@ -211,6 +214,7 @@ async def chat(
                 "tool_call_id": tc.get("id", ""),
             })
 
+        conv.updated_at = datetime.now(timezone.utc)
         db.commit()
 
     return {"role": "assistant", "content": "抱歉，处理超时，请重试。", "tool_calls": []}

@@ -39,9 +39,12 @@ def cleanup_old_data(db: Session, days: int = None) -> dict:
         db.delete(photo)
     counts["photos"] = len(old_photos)
 
-    # --- Analyses (cascade handled by FK, but clean up orphans explicitly) ---
-    deleted_analyses = db.query(Analysis).filter(Analysis.created_at < cutoff).delete()
-    counts["analyses"] = deleted_analyses
+    # --- Orphan analyses (cascade handles those tied to deleted photos above) ---
+    orphan_analyses = db.query(Analysis).filter(
+        Analysis.created_at < cutoff,
+        ~Analysis.photo_id.in_(db.query(Photo.id))
+    ).delete(synchronize_session=False)
+    counts["analyses"] = len(old_photos) + orphan_analyses
 
     # --- Chat messages ---
     deleted_messages = db.query(ChatMessage).filter(ChatMessage.created_at < cutoff).delete()

@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     max_upload_bytes: int = 50 * 1024 * 1024  # 50MB per file
 
     # LLM
-    llm_base_url: str = "https://token-plan-cn.xiaomimimo.com/v1"
+    llm_base_url: str = ""
     llm_api_key: str = ""  # MUST be set via EVATAR_LLM_API_KEY env var
     llm_model: str = "mimo-v2.5"
     llm_max_tokens: int = 4096

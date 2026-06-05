@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import threading
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
@@ -80,25 +81,6 @@ async def process_photo(photo_id: int):
         analysis.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
         logger.info(f"Photo {photo_id} analyzed: intent={analysis.intent}")
 
-        # Skip memory extraction for low-relevance screenshots
-        relevance = parsed.get("relevance", "high")
-        confidence = parsed.get("confidence", 1)
-        if relevance == "low" and confidence < 0.3:
-            logger.info(f"Skipping low-relevance screenshot {photo_id}")
-        else:
-            # Extract memories from the analysis (use separate session to avoid
-            # interfering with the main analysis transaction)
-            try:
-                from services.memory import extract_memories_from_text
-                mem_text = f"截图应用:{parsed.get('app_name','')} 分类:{parsed.get('content_category','')} 摘要:{parsed.get('summary','')} 实体:{parsed.get('entities','')}"
-                mem_db = SessionLocal()
-                try:
-                    await extract_memories_from_text(mem_text, "photo", str(photo_id), photo.device_id or "", mem_db)
-                finally:
-                    mem_db.close()
-            except Exception as me:
-                logger.warning(f"Memory extraction from photo failed: {me}")
-
     except Exception as e:
         logger.error(f"Failed to analyze photo {photo_id}: {e}", exc_info=True)
         if analysis:
@@ -113,11 +95,26 @@ async def process_photo(photo_id: int):
             db.rollback()
     else:
         db.commit()
+        # Memory extraction in separate try/except so failures don't affect the analysis commit
+        try:
+            relevance = parsed.get("relevance", "high")
+            confidence = parsed.get("confidence", 1)
+            if not (relevance == "low" and confidence < 0.3):
+                from services.memory import extract_memories_from_text
+                mem_text = f"截图应用:{parsed.get('app_name','')} 分类:{parsed.get('content_category','')} 摘要:{parsed.get('summary','')} 实体:{parsed.get('entities','')}"
+                mem_db = SessionLocal()
+                try:
+                    await extract_memories_from_text(mem_text, "photo", str(photo_id), photo.device_id or "", mem_db)
+                finally:
+                    mem_db.close()
+        except Exception as me:
+            logger.warning(f"Memory extraction from photo failed: {me}")
     finally:
         db.close()
 
 
 _analysis_counter = 0
+_counter_lock = threading.Lock()
 _REASONING_TRIGGER_EVERY = 3  # Trigger reasoning after every N new analyses
 
 
@@ -131,10 +128,14 @@ def enqueue_analysis(photo_id: int):
 def _on_analysis_done(task: asyncio.Task):
     """Callback when an analysis completes. Triggers reasoning periodically."""
     _running_tasks.discard(task)
-    global _analysis_counter
-    _analysis_counter += 1
-    if _analysis_counter >= _REASONING_TRIGGER_EVERY:
-        _analysis_counter = 0
+    trigger = False
+    with _counter_lock:
+        global _analysis_counter
+        _analysis_counter += 1
+        if _analysis_counter >= _REASONING_TRIGGER_EVERY:
+            _analysis_counter = 0
+            trigger = True
+    if trigger:
         asyncio.create_task(_trigger_reasoning())
 
 

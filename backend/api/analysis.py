@@ -16,6 +16,14 @@ async def list_analyses(
     intent: str = None,
     db: Session = Depends(get_db),
 ):
+    # Use a separate count query to avoid N+1 from joinedload polluting the count
+    count_query = db.query(func.count(Analysis.id))
+    if status:
+        count_query = count_query.filter(Analysis.status == status)
+    if intent:
+        count_query = count_query.filter(Analysis.intent == intent)
+    total = count_query.scalar()
+
     query = db.query(Analysis).options(joinedload(Analysis.photo)).order_by(desc(Analysis.created_at))
 
     if status:
@@ -23,7 +31,6 @@ async def list_analyses(
     if intent:
         query = query.filter(Analysis.intent == intent)
 
-    total = query.count()
     analyses = query.offset((page - 1) * page_size).limit(page_size).all()
 
     items = []
