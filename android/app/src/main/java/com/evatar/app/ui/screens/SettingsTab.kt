@@ -27,7 +27,11 @@ import com.evatar.app.network.ApiClient
 import com.evatar.app.ui.theme.EvatarTypography
 
 @Composable
-fun SettingsTab(modifier: Modifier = Modifier) {
+fun SettingsTab(
+    modifier: Modifier = Modifier,
+    themeMode: String = "dark",
+    onThemeChange: (String) -> Unit = {},
+) {
     val context = LocalContext.current
     val apiClient = remember { ApiClient.getInstance(context) }
     var serverUrl by remember { mutableStateOf(apiClient.getServerUrl()) }
@@ -78,14 +82,33 @@ fun SettingsTab(modifier: Modifier = Modifier) {
                     modifier = Modifier.padding(start = 56.dp, bottom = 8.dp))
             }
             if (urlError != null) {
-                Text(urlError!!, style = EvatarTypography.caption1, color = com.evatar.app.ui.theme.EvatarColors.LightError,
+                Text(urlError!!, style = EvatarTypography.caption1, color = com.evatar.app.ui.theme.EvatarColors.DarkError,
                     modifier = Modifier.padding(start = 56.dp, bottom = 8.dp))
             }
         }
 
-        // Battery section
+        // System section
         SectionHeader("系统")
         SettingsGroup {
+            // Theme toggle
+            SettingsRow(
+                icon = Icons.Outlined.Brightness6,
+                label = stringResource(R.string.setting_theme),
+                subtitle = when (themeMode) {
+                    "dark" -> stringResource(R.string.setting_theme_dark)
+                    "light" -> stringResource(R.string.setting_theme_light)
+                    else -> stringResource(R.string.setting_theme_system)
+                },
+                onClick = {
+                    val next = when (themeMode) {
+                        "dark" -> "light"
+                        "light" -> "system"
+                        else -> "dark"
+                    }
+                    onThemeChange(next)
+                },
+            )
+
             SettingsRow(
                 icon = Icons.Outlined.BatteryChargingFull,
                 label = stringResource(R.string.setting_battery),

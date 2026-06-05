@@ -126,7 +126,7 @@ fun HomeScreen() {
                 modifier = Modifier.fillMaxWidth().height(50.dp),
                 shape = RoundedCornerShape(14.dp),
                 colors = if (isSyncRunning)
-                    ButtonDefaults.buttonColors(containerColor = EvatarColors.LightError)
+                    ButtonDefaults.buttonColors(containerColor = EvatarColors.DarkError)
                 else
                     ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
             ) {
@@ -202,9 +202,9 @@ private fun StatusCard(connected: Boolean, serverUrl: String, modifier: Modifier
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (connected)
-                EvatarColors.LightSuccess.copy(alpha = 0.1f)
+                EvatarColors.DarkSuccess.copy(alpha = 0.1f)
             else
-                EvatarColors.LightError.copy(alpha = 0.1f)
+                EvatarColors.DarkError.copy(alpha = 0.1f)
         ),
     ) {
         Row(
@@ -216,7 +216,7 @@ private fun StatusCard(connected: Boolean, serverUrl: String, modifier: Modifier
                 modifier = Modifier
                     .size(10.dp)
                     .clip(CircleShape)
-                    .background(if (connected) EvatarColors.LightSuccess else EvatarColors.LightError)
+                    .background(if (connected) EvatarColors.DarkSuccess else EvatarColors.DarkError)
             )
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -224,7 +224,7 @@ private fun StatusCard(connected: Boolean, serverUrl: String, modifier: Modifier
                     if (connected) stringResource(R.string.server_connected)
                     else stringResource(R.string.server_disconnected),
                     style = EvatarTypography.headline,
-                    color = if (connected) EvatarColors.LightSuccess else EvatarColors.LightError,
+                    color = if (connected) EvatarColors.DarkSuccess else EvatarColors.DarkError,
                 )
                 Text(
                     serverUrl,
@@ -272,8 +272,8 @@ private fun SyncStatsCard(isSyncing: Boolean, lastResult: SyncResult?, serverCon
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly,
                     ) {
-                        StatColumn(stringResource(R.string.stat_synced), lastResult.success, EvatarColors.LightSuccess)
-                        StatColumn(stringResource(R.string.stat_errors), lastResult.failed, EvatarColors.LightError)
+                        StatColumn(stringResource(R.string.stat_synced), lastResult.success, EvatarColors.DarkSuccess)
+                        StatColumn(stringResource(R.string.stat_errors), lastResult.failed, EvatarColors.DarkError)
                         StatColumn(stringResource(R.string.stat_total), lastResult.total, MaterialTheme.colorScheme.onSurface)
                     }
                 }

@@ -230,7 +230,7 @@ private fun ConversationRow(conversation: UiConversation, onClick: () -> Unit, o
             text = { Text("确定删除「${conversation.title}」？") },
             confirmButton = {
                 TextButton(onClick = { showDeleteDialog = false; onDelete() }) {
-                    Text("删除", color = EvatarColors.LightError)
+                    Text("删除", color = EvatarColors.DarkError)
                 }
             },
             dismissButton = { TextButton(onClick = { showDeleteDialog = false }) { Text("取消") } },
@@ -358,14 +358,14 @@ private fun ChatView(
         // Retry bar
         if (lastFailedMessage != null && !sending) {
             Surface(
-                color = EvatarColors.LightError.copy(alpha = 0.1f),
+                color = EvatarColors.DarkError.copy(alpha = 0.1f),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("发送失败", style = EvatarTypography.subheadline, color = EvatarColors.LightError, modifier = Modifier.weight(1f))
+                    Text("发送失败", style = EvatarTypography.subheadline, color = EvatarColors.DarkError, modifier = Modifier.weight(1f))
                     TextButton(onClick = onRetry) { Text("重试", color = MaterialTheme.colorScheme.primary) }
                     TextButton(onClick = onCancel) { Text("取消", color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }

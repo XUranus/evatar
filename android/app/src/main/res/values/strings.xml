@@ -57,4 +57,10 @@
     <string name="setting_exclusion_empty">暂无排除的应用</string>
     <string name="setting_exclusion_input_label">包名</string>
     <string name="setting_exclusion_add">添加</string>
+
+    <!-- Theme -->
+    <string name="setting_theme">外观主题</string>
+    <string name="setting_theme_dark">深色模式</string>
+    <string name="setting_theme_light">浅色模式</string>
+    <string name="setting_theme_system">跟随系统</string>
 </resources>

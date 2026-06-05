@@ -4,11 +4,17 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- Diamond shape matching frontend favicon -->
     <group
-        android:translateX="22"
-        android:translateY="22">
+        android:translateX="27"
+        android:translateY="18">
         <path
-            android:fillColor="#FFFFFF"
-            android:pathData="M32,4C16.536,4 4,16.536 4,32s12.536,28 28,28 28,-12.536 28,-28S47.464,4 32,4zM32,52c-11.046,0 -20,-8.954 -20,-20s8.954,-20 20,-20 20,8.954 20,20 -8.954,20 -20,20zM34,22h-4v12l10.5,6.3 2,-3.32L34,33.16z" />
+            android:fillColor="#F0A500"
+            android:pathData="M27,0 L54,27 L27,54 L0,27 Z"
+            android:fillAlpha="0.9"/>
+        <path
+            android:fillColor="#F0A500"
+            android:pathData="M27,38 a8,8 0 1,1 0.001,0"
+            android:fillAlpha="0.7"/>
     </group>
 </vector>

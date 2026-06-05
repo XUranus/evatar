@@ -7,9 +7,11 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import com.evatar.app.ui.AppNavigation
@@ -17,13 +19,17 @@ import com.evatar.app.ui.theme.EvatarTheme
 
 class MainActivity : ComponentActivity() {
 
+    companion object {
+        const val PREF_NAME = "evatar_prefs"
+        const val KEY_THEME = "theme_mode" // "system", "dark", "light"
+    }
+
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         val denied = permissions.filter { !it.value }.keys
         if (denied.isNotEmpty()) {
             android.util.Log.w("MainActivity", "Denied permissions: $denied")
-            // App will still work with reduced functionality
         }
     }
 
@@ -32,12 +38,27 @@ class MainActivity : ComponentActivity() {
         requestPermissions()
 
         setContent {
-            EvatarTheme {
+            val prefs = remember { getSharedPreferences(PREF_NAME, MODE_PRIVATE) }
+            var themeMode by remember { mutableStateOf(prefs.getString(KEY_THEME, "dark") ?: "dark") }
+
+            val darkTheme = when (themeMode) {
+                "light" -> false
+                "dark" -> true
+                else -> isSystemInDarkTheme()
+            }
+
+            EvatarTheme(darkTheme = darkTheme) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    AppNavigation()
+                    AppNavigation(
+                        themeMode = themeMode,
+                        onThemeChange = { mode ->
+                            themeMode = mode
+                            prefs.edit().putString(KEY_THEME, mode).apply()
+                        }
+                    )
                 }
             }
         }

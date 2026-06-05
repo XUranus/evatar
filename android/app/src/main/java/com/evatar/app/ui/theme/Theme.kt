@@ -15,32 +15,52 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 
-// iOS-inspired color palette
+// Observatory color palette — shared with frontend
 object EvatarColors {
-    // Light
-    val LightBackground = Color(0xFFF2F2F7)      // iOS system grouped background
-    val LightSurface = Color(0xFFFFFFFF)
-    val LightSurfaceVariant = Color(0xFFF2F2F7)
-    val LightOnSurface = Color(0xFF1C1C1E)        // iOS label
-    val LightOnSurfaceVariant = Color(0xFF8E8E93)  // iOS secondary label
-    val LightSeparator = Color(0xFFC6C6C8)         // iOS separator
-    val LightPrimary = Color(0xFF007AFF)            // iOS blue
-    val LightError = Color(0xFFFF3B30)              // iOS red
-    val LightSuccess = Color(0xFF34C759)            // iOS green
-    val LightWarning = Color(0xFFFF9500)            // iOS orange
+    // Dark (default)
+    val DarkVoid = Color(0xFF0D0D1A)
+    val DarkBackground = Color(0xFF141425)
+    val DarkSurface = Color(0xFF1C1C32)
+    val DarkSurfaceVariant = Color(0xFF252542)
+    val DarkOnSurface = Color(0xFFE8E0D4)
+    val DarkOnSurfaceVariant = Color(0xFFA09888)
+    val DarkMuted = Color(0xFF6A6258)
+    val DarkBorder = Color(0x0FFFFFFF) // 6% white
+    val DarkPrimary = Color(0xFFF0A500)        // amber
+    val DarkPrimaryDim = Color(0x26F0A500)     // amber 15%
+    val DarkError = Color(0xFFE85D75)
+    val DarkSuccess = Color(0xFF00D9A6)
+    val DarkWarning = Color(0xFFF0A500)
+    val DarkBlue = Color(0xFF5B8DEF)
 
-    // Dark
-    val DarkBackground = Color(0xFF000000)
-    val DarkSurface = Color(0xFF1C1C1E)
-    val DarkSurfaceVariant = Color(0xFF2C2C2E)
-    val DarkOnSurface = Color(0xFFF2F2F7)
-    val DarkOnSurfaceVariant = Color(0xFF8E8E93)
-    val DarkSeparator = Color(0xFF38383A)
-    val DarkPrimary = Color(0xFF0A84FF)             // iOS dark blue
-    val DarkError = Color(0xFFFF453A)
-    val DarkSuccess = Color(0xFF30D158)
-    val DarkWarning = Color(0xFFFF9F0A)
+    // Light
+    val LightVoid = Color(0xFFF5F0EB)
+    val LightBackground = Color(0xFFFAF7F2)
+    val LightSurface = Color(0xFFFFFFFF)
+    val LightSurfaceVariant = Color(0xFFF0EBE4)
+    val LightOnSurface = Color(0xFF1A1510)
+    val LightOnSurfaceVariant = Color(0xFF6B5E50)
+    val LightMuted = Color(0xFFA09080)
+    val LightBorder = Color(0x14000000) // 8% black
+    val LightPrimary = Color(0xFFC88500)
+    val LightPrimaryDim = Color(0x1AC88500)
+    val LightError = Color(0xFFD44459)
+    val LightSuccess = Color(0xFF00B88C)
+    val LightBlue = Color(0xFF4A7BD4)
 }
+
+private val DarkColorScheme = darkColorScheme(
+    primary = EvatarColors.DarkPrimary,
+    onPrimary = EvatarColors.DarkVoid,
+    background = EvatarColors.DarkBackground,
+    surface = EvatarColors.DarkSurface,
+    surfaceVariant = EvatarColors.DarkSurfaceVariant,
+    onSurface = EvatarColors.DarkOnSurface,
+    onSurfaceVariant = EvatarColors.DarkOnSurfaceVariant,
+    error = EvatarColors.DarkError,
+    outline = EvatarColors.DarkBorder,
+    outlineVariant = EvatarColors.DarkBorder,
+)
 
 private val LightColorScheme = lightColorScheme(
     primary = EvatarColors.LightPrimary,
@@ -51,21 +71,8 @@ private val LightColorScheme = lightColorScheme(
     onSurface = EvatarColors.LightOnSurface,
     onSurfaceVariant = EvatarColors.LightOnSurfaceVariant,
     error = EvatarColors.LightError,
-    outline = EvatarColors.LightSeparator,
-    outlineVariant = EvatarColors.LightSeparator.copy(alpha = 0.5f),
-)
-
-private val DarkColorScheme = darkColorScheme(
-    primary = EvatarColors.DarkPrimary,
-    onPrimary = Color.White,
-    background = EvatarColors.DarkBackground,
-    surface = EvatarColors.DarkSurface,
-    surfaceVariant = EvatarColors.DarkSurfaceVariant,
-    onSurface = EvatarColors.DarkOnSurface,
-    onSurfaceVariant = EvatarColors.DarkOnSurfaceVariant,
-    error = EvatarColors.DarkError,
-    outline = EvatarColors.DarkSeparator,
-    outlineVariant = EvatarColors.DarkSeparator.copy(alpha = 0.5f),
+    outline = EvatarColors.LightBorder,
+    outlineVariant = EvatarColors.LightBorder,
 )
 
 @Composable
@@ -73,14 +80,7 @@ fun EvatarTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
+    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
 
     val view = LocalView.current
     if (!view.isInEditMode) {
@@ -99,71 +99,16 @@ fun EvatarTheme(
     )
 }
 
-// iOS-like text styles
 object EvatarTypography {
-    val largeTitle = TextStyle(
-        fontWeight = FontWeight.Bold,
-        fontSize = 34.sp,
-        lineHeight = 41.sp,
-        letterSpacing = 0.37.sp,
-    )
-    val title1 = TextStyle(
-        fontWeight = FontWeight.Bold,
-        fontSize = 28.sp,
-        lineHeight = 34.sp,
-        letterSpacing = 0.36.sp,
-    )
-    val title2 = TextStyle(
-        fontWeight = FontWeight.Bold,
-        fontSize = 22.sp,
-        lineHeight = 28.sp,
-        letterSpacing = 0.35.sp,
-    )
-    val title3 = TextStyle(
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 20.sp,
-        lineHeight = 25.sp,
-        letterSpacing = 0.38.sp,
-    )
-    val headline = TextStyle(
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 17.sp,
-        lineHeight = 22.sp,
-        letterSpacing = (-0.41).sp,
-    )
-    val body = TextStyle(
-        fontWeight = FontWeight.Normal,
-        fontSize = 17.sp,
-        lineHeight = 22.sp,
-        letterSpacing = (-0.41).sp,
-    )
-    val callout = TextStyle(
-        fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 21.sp,
-        letterSpacing = (-0.32).sp,
-    )
-    val subheadline = TextStyle(
-        fontWeight = FontWeight.Normal,
-        fontSize = 15.sp,
-        lineHeight = 20.sp,
-        letterSpacing = (-0.24).sp,
-    )
-    val footnote = TextStyle(
-        fontWeight = FontWeight.Normal,
-        fontSize = 13.sp,
-        lineHeight = 18.sp,
-        letterSpacing = (-0.08).sp,
-    )
-    val caption1 = TextStyle(
-        fontWeight = FontWeight.Normal,
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
-    )
-    val caption2 = TextStyle(
-        fontWeight = FontWeight.Normal,
-        fontSize = 11.sp,
-        lineHeight = 13.sp,
-        letterSpacing = 0.07.sp,
-    )
+    val largeTitle = TextStyle(fontWeight = FontWeight.Bold, fontSize = 34.sp, lineHeight = 41.sp)
+    val title1 = TextStyle(fontWeight = FontWeight.Bold, fontSize = 28.sp, lineHeight = 34.sp)
+    val title2 = TextStyle(fontWeight = FontWeight.Bold, fontSize = 22.sp, lineHeight = 28.sp)
+    val title3 = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 20.sp, lineHeight = 25.sp)
+    val headline = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 17.sp, lineHeight = 22.sp)
+    val body = TextStyle(fontWeight = FontWeight.Normal, fontSize = 17.sp, lineHeight = 22.sp)
+    val callout = TextStyle(fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 21.sp)
+    val subheadline = TextStyle(fontWeight = FontWeight.Normal, fontSize = 15.sp, lineHeight = 20.sp)
+    val footnote = TextStyle(fontWeight = FontWeight.Normal, fontSize = 13.sp, lineHeight = 18.sp)
+    val caption1 = TextStyle(fontWeight = FontWeight.Normal, fontSize = 12.sp, lineHeight = 16.sp)
+    val caption2 = TextStyle(fontWeight = FontWeight.Normal, fontSize = 11.sp, lineHeight = 13.sp)
 }

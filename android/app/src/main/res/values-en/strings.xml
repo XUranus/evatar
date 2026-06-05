@@ -57,4 +57,10 @@
     <string name="setting_exclusion_empty">No excluded apps</string>
     <string name="setting_exclusion_input_label">Package name</string>
     <string name="setting_exclusion_add">Add</string>
+
+    <!-- Theme -->
+    <string name="setting_theme">Appearance</string>
+    <string name="setting_theme_dark">Dark Mode</string>
+    <string name="setting_theme_light">Light Mode</string>
+    <string name="setting_theme_system">System Default</string>
 </resources>

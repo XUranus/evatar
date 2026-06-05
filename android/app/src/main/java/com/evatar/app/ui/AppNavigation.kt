@@ -47,7 +47,10 @@ enum class Tab(
 }
 
 @Composable
-fun AppNavigation() {
+fun AppNavigation(
+    themeMode: String = "dark",
+    onThemeChange: (String) -> Unit = {},
+) {
     var selectedTab by remember { mutableStateOf(Tab.HOME) }
     val haptic = LocalHapticFeedback.current
 
@@ -88,7 +91,7 @@ fun AppNavigation() {
                 Tab.HOME -> HomeScreen()
                 Tab.CHAT -> ChatTab()
                 Tab.DYNAMIC -> DynamicTab()
-                Tab.SETTINGS -> SettingsTab()
+                Tab.SETTINGS -> SettingsTab(themeMode = themeMode, onThemeChange = onThemeChange)
             }
         }
     }
