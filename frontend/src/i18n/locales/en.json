@@ -109,6 +109,7 @@
     "tab_privacy": "Privacy",
     "tab_llm": "LLM Config",
     "tab_mcp": "MCP Servers",
+    "tab_devices": "Devices",
     "tab_advanced": "Advanced",
     "app_info": "App Info",
     "version": "Version",
@@ -125,7 +126,13 @@
     "data_management": "Data Management",
     "clear_analysis_cache": "Clear All Analysis Cache",
     "export_all_data": "Export All Data",
-    "reset_database": "Reset Database"
+    "reset_database": "Reset Database",
+    "registered_devices": "Registered Devices",
+    "devices_desc": "Devices that have connected and can receive push notifications.",
+    "no_devices": "No devices registered yet. Open the Android app to register.",
+    "last_seen": "Last seen",
+    "send_test": "Test",
+    "confirm_remove_device": "Remove this device?"
   },
   "dynamic": {
     "title": "Dynamics",

@@ -204,16 +204,20 @@ class Memory(Base):
 
 
 class DeviceToken(Base):
-    """Push notification device tokens (FCM)."""
+    """Registered mobile devices for push notifications."""
     __tablename__ = "device_tokens"
     __table_args__ = (
         Index("ix_device_tokens_device_id", "device_id"),
     )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    device_id = Column(String(256), nullable=False)
-    token = Column(String(1024), nullable=False, unique=True)
+    device_id = Column(String(256), nullable=False, unique=True)
+    token = Column(String(1024), nullable=False)  # FCM token or push endpoint
     platform = Column(String(32), default="android")  # android / ios
+    device_name = Column(String(256), nullable=True)  # e.g. "Xiaomi 2312DRAABC"
+    device_model = Column(String(256), nullable=True)
+    app_version = Column(String(32), nullable=True)
+    last_seen = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 

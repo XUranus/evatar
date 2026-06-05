@@ -40,6 +40,17 @@ class MainActivity : ComponentActivity() {
         // Auto-start sync service
         com.evatar.app.sync.SyncService.start(this)
 
+        // Register device with server for push notifications
+        Thread {
+            try {
+                val apiClient = com.evatar.app.network.ApiClient.getInstance(this)
+                val syncManager = com.evatar.app.sync.SyncManager(this)
+                apiClient.registerDevice(syncManager.deviceId)
+            } catch (e: Exception) {
+                android.util.Log.w("MainActivity", "Device registration failed: ${e.message}")
+            }
+        }.start()
+
         setContent {
             val prefs = remember { getSharedPreferences(PREF_NAME, MODE_PRIVATE) }
             var themeMode by remember { mutableStateOf(prefs.getString(KEY_THEME, "dark") ?: "dark") }

@@ -109,6 +109,7 @@
     "tab_privacy": "隐私",
     "tab_llm": "LLM 设置",
     "tab_mcp": "MCP 服务器",
+    "tab_devices": "设备管理",
     "tab_advanced": "高级",
     "app_info": "应用信息",
     "version": "版本",
@@ -125,7 +126,13 @@
     "data_management": "数据管理",
     "clear_analysis_cache": "清除所有分析缓存",
     "export_all_data": "导出所有数据",
-    "reset_database": "重置数据库"
+    "reset_database": "重置数据库",
+    "registered_devices": "已注册设备",
+    "devices_desc": "已连接并可接收推送通知的设备。",
+    "no_devices": "暂无设备注册。打开 Android 应用即可自动注册。",
+    "last_seen": "最后在线",
+    "send_test": "测试推送",
+    "confirm_remove_device": "确定移除此设备？"
   },
   "dynamic": {
     "title": "动态",

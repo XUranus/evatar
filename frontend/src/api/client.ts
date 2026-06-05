@@ -243,3 +243,21 @@ export const getDynamicsUnreadCount = () => api.get<{ unread_count: number }>('/
 // ── Excluded Apps ──
 
 export const getExcludedApps = () => api.get<{ apps: string[] }>('/config/excluded-apps');
+
+// ── Devices (Push) ──
+
+export interface Device {
+  id: number;
+  device_id: string;
+  device_name: string;
+  device_model: string;
+  platform: string;
+  app_version: string;
+  last_seen: string | null;
+  created_at: string | null;
+}
+
+export const getDevices = () => api.get<{ devices: Device[] }>('/push/devices');
+export const removeDevice = (deviceId: string) => api.delete(`/push/devices/${deviceId}`);
+export const sendTestPush = (deviceId: string) =>
+  api.post('/push/test', { device_id: deviceId });

@@ -1,17 +1,18 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Settings, Lock, Bot, Plug, Wrench, Trash2 } from 'lucide-react';
+import { Settings, Lock, Bot, Plug, Wrench, Trash2, Smartphone } from 'lucide-react';
 import {
   getLLMConfig, updateLLMConfig, getLLMPresets, applyLLMPreset,
   getMCPServers, createMCPServer, deleteMCPServer,
   getDataStats, getRetentionDays, setRetentionDays, clearAllData, exportData,
   getPushConfig, setPushConfig, sendTestNotification,
   getExcludedApps,
+  getDevices, removeDevice, sendTestPush,
   type LLMConfig as LLMConfigType, type LLMPreset, type MCPServer,
-  type DataStats,
+  type DataStats, type Device,
 } from '../api/client';
 
-type SettingsTab = 'general' | 'privacy' | 'llm' | 'mcp' | 'advanced';
+type SettingsTab = 'general' | 'privacy' | 'llm' | 'mcp' | 'devices' | 'advanced';
 
 const PROVIDER_COLORS: Record<string, string> = {
   mimo: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-700',
@@ -28,6 +29,7 @@ const tabItems: { key: SettingsTab; icon: React.ReactNode; labelKey: string }[] 
   { key: 'privacy', icon: <Lock size={14} />, labelKey: 'settings.tab_privacy' },
   { key: 'llm', icon: <Bot size={14} />, labelKey: 'settings.tab_llm' },
   { key: 'mcp', icon: <Plug size={14} />, labelKey: 'settings.tab_mcp' },
+  { key: 'devices', icon: <Smartphone size={14} />, labelKey: 'settings.tab_devices' },
   { key: 'advanced', icon: <Wrench size={14} />, labelKey: 'settings.tab_advanced' },
 ];
 
@@ -61,6 +63,7 @@ export default function SettingsPage() {
       {tab === 'privacy' && <PrivacySettings t={t} />}
       {tab === 'llm' && <LLMSettings t={t} />}
       {tab === 'mcp' && <MCPSettings />}
+      {tab === 'devices' && <DevicesSettings />}
       {tab === 'advanced' && <AdvancedSettings />}
     </div>
   );
@@ -413,6 +416,69 @@ function AdvancedSettings() {
           <button className="w-full text-left px-4 py-2 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm hover:bg-gray-100 dark:hover:bg-gray-700">{t('settings.export_all_data', 'Export all data')}</button>
           <button className="w-full text-left px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm hover:bg-red-100 dark:hover:bg-red-900/40">{t('settings.reset_database', 'Reset database')}</button>
         </div>
+      </Card>
+    </div>
+  );
+}
+
+function DevicesSettings() {
+  const { t } = useTranslation();
+  const [devices, setDevices] = useState<Device[]>([]);
+
+  useEffect(() => {
+    getDevices().then(r => setDevices(r.data.devices)).catch(() => {});
+  }, []);
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-1">{t('settings.registered_devices', 'Registered Devices')}</h2>
+        <p className="text-xs text-gray-400 mb-4">{t('settings.devices_desc', 'Devices that have connected and can receive push notifications.')}</p>
+
+        {devices.length === 0 ? (
+          <div className="text-sm text-gray-400 py-8 text-center">
+            {t('settings.no_devices', 'No devices registered yet. Open the Android app to register.')}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {devices.map(device => (
+              <div key={device.device_id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center text-lg">
+                    {device.platform === 'android' ? '🤖' : '📱'}
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium dark:text-gray-200">{device.device_name}</div>
+                    <div className="text-xs text-gray-400">{device.device_model} · {device.platform}</div>
+                    <div className="text-xs text-gray-400">
+                      {t('settings.last_seen', 'Last seen')}: {device.last_seen ? new Date(device.last_seen).toLocaleString() : '-'}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => sendTestPush(device.device_id).then(() => alert('测试通知已发送'))}
+                    className="px-3 py-1 text-xs bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded hover:bg-blue-100"
+                  >
+                    {t('settings.send_test', 'Test')}
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (confirm(t('settings.confirm_remove_device', 'Remove this device?'))) {
+                        removeDevice(device.device_id).then(() => {
+                          setDevices(prev => prev.filter(d => d.device_id !== device.device_id));
+                        });
+                      }
+                    }}
+                    className="px-3 py-1 text-xs bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded hover:bg-red-100"
+                  >
+                    {t('common.delete', 'Delete')}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
     </div>
   );

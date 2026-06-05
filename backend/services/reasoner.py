@@ -170,18 +170,18 @@ async def run_reasoning_cycle(device_id: str = None) -> list[dict]:
             except Exception as e:
                 logger.warning(f"Memory extraction from articles failed: {e}")
 
-        # Send push notification for new articles
-        if saved and device_id:
+        # Broadcast push to ALL registered devices
+        if saved:
             try:
-                from services.push import send_push
-                await send_push(
-                    device_id=device_id,
+                from services.push import broadcast_push
+                titles = "、".join(s["title"] for s in saved[:3])
+                await broadcast_push(
                     title="Evatar 新笔记",
-                    body=f"为你生成了 {len(saved)} 篇新笔记",
-                    data={"count": len(saved)},
+                    body=f"为你生成了 {len(saved)} 篇笔记：{titles}",
+                    data={"count": len(saved), "type": "new_dynamics"},
                 )
             except Exception as push_err:
-                logger.warning(f"Push notification failed: {push_err}")
+                logger.warning(f"Push broadcast failed: {push_err}")
 
         return saved
 

@@ -222,6 +222,31 @@ class ApiClient private constructor(private val context: Context) {
 
     // ── Dynamics ──
 
+    /**
+     * Register this device with the server for push notifications.
+     */
+    fun registerDevice(deviceId: String): Boolean {
+        return try {
+            val body = JSONObject().apply {
+                put("device_id", deviceId)
+                put("token", deviceId)  // placeholder until FCM is integrated
+                put("platform", "android")
+                put("device_name", deviceName)
+                put("device_model", "${Build.MODEL}")
+                put("app_version", "0.3.0")
+            }.toString().toRequestBody("application/json".toMediaTypeOrNull())
+
+            val request = Request.Builder()
+                .url("${getServerUrl()}/api/push/register")
+                .post(body)
+                .build()
+            execute(request) { it.isSuccessful }
+        } catch (e: Exception) {
+            Log.e(TAG, "registerDevice error", e)
+            false
+        }
+    }
+
     fun getDynamics(category: String? = null, page: Int = 1, pageSize: Int = 50): JSONObject {
         return try {
             val urlBuilder = StringBuilder("${getServerUrl()}/api/dynamics?page=$page&page_size=$pageSize")
