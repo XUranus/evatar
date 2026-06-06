@@ -24,50 +24,32 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.evatar.app.R
 import com.evatar.app.keepalive.KeepAliveService
-import com.evatar.app.network.ApiClient
 import com.evatar.app.sync.SyncManager
-import com.evatar.app.sync.SyncResult
-import com.evatar.app.sync.SyncService
 import com.evatar.app.ui.theme.EvatarColors
 import com.evatar.app.ui.theme.EvatarTypography
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import com.evatar.app.viewmodel.SettingsViewModel
 
 @Composable
 fun SettingsTab(
     modifier: Modifier = Modifier,
     themeMode: String = "dark",
     onThemeChange: (String) -> Unit = {},
+    viewModel: SettingsViewModel = viewModel(),
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val apiClient = remember { ApiClient.getInstance(context) }
+    val state by viewModel.state.collectAsState()
     val syncManager = remember { SyncManager(context) }
-
-    var serverUrl by remember { mutableStateOf(apiClient.getServerUrl()) }
-    var urlField by remember { mutableStateOf(serverUrl) }
-    var saved by remember { mutableStateOf(false) }
-    var urlError by remember { mutableStateOf<String?>(null) }
-    var serverConnected by remember { mutableStateOf(false) }
-    var lastResult by remember { mutableStateOf<SyncResult?>(null) }
-    var isSyncing by remember { mutableStateOf(false) }
-    var isKeepAliveRunning by remember { mutableStateOf(false) }
 
     val overlayLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
     ) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(context)) {
             KeepAliveService.start(context)
-            isKeepAliveRunning = true
+            viewModel.setKeepAlive(true)
         }
-    }
-
-    // Check connection on first load
-    LaunchedEffect(Unit) {
-        serverConnected = withContext(Dispatchers.IO) { apiClient.checkHealth() }
     }
 
     Column(
@@ -90,20 +72,20 @@ fun SettingsTab(
                         modifier = Modifier
                             .size(8.dp)
                             .clip(CircleShape)
-                            .background(if (serverConnected) EvatarColors.DarkSuccess else EvatarColors.DarkError)
+                            .background(if (state.serverConnected) EvatarColors.DarkSuccess else EvatarColors.DarkError)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        if (serverConnected) stringResource(R.string.server_connected)
+                        if (state.serverConnected) stringResource(R.string.server_connected)
                         else stringResource(R.string.server_disconnected),
                         style = EvatarTypography.subheadline,
-                        color = if (serverConnected) EvatarColors.DarkSuccess else EvatarColors.DarkError,
+                        color = if (state.serverConnected) EvatarColors.DarkSuccess else EvatarColors.DarkError,
                     )
                 }
 
                 OutlinedTextField(
-                    value = urlField,
-                    onValueChange = { urlField = it; saved = false; urlError = null },
+                    value = state.urlField,
+                    onValueChange = { viewModel.updateUrlField(it) },
                     modifier = Modifier.fillMaxWidth(),
                     placeholder = { Text("http://192.168.0.107:8421", style = EvatarTypography.subheadline) },
                     singleLine = true,
@@ -112,36 +94,18 @@ fun SettingsTab(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Button(
-                    onClick = {
-                        val trimmed = urlField.trim()
-                        when {
-                            trimmed.isEmpty() -> { urlError = "请输入服务端地址" }
-                            !trimmed.startsWith("http://") && !trimmed.startsWith("https://") -> {
-                                urlError = "地址必须以 http:// 或 https:// 开头"
-                            }
-                            else -> {
-                                urlError = null
-                                apiClient.setServerUrl(trimmed)
-                                serverUrl = trimmed
-                                saved = true
-                                // Re-check connection
-                                scope.launch {
-                                    serverConnected = withContext(Dispatchers.IO) { apiClient.checkHealth() }
-                                }
-                            }
-                        }
-                    },
+                    onClick = { viewModel.saveUrl() },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                 ) {
                     Text(stringResource(R.string.setting_save))
                 }
-                if (saved) {
+                if (state.saved) {
                     Text("已保存", style = EvatarTypography.caption1, color = EvatarColors.DarkSuccess,
                         modifier = Modifier.padding(top = 4.dp))
                 }
-                if (urlError != null) {
-                    Text(urlError!!, style = EvatarTypography.caption1, color = EvatarColors.DarkError,
+                if (state.urlError != null) {
+                    Text(state.urlError!!, style = EvatarTypography.caption1, color = EvatarColors.DarkError,
                         modifier = Modifier.padding(top = 4.dp))
                 }
             }
@@ -152,11 +116,11 @@ fun SettingsTab(
         SettingsGroup {
             Column(modifier = Modifier.padding(16.dp)) {
                 // Last sync result
-                if (lastResult != null) {
+                if (state.lastResult != null) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        MiniStat(stringResource(R.string.stat_synced), lastResult!!.success, EvatarColors.DarkSuccess)
-                        MiniStat(stringResource(R.string.stat_errors), lastResult!!.failed, EvatarColors.DarkError)
-                        MiniStat(stringResource(R.string.stat_total), lastResult!!.total, MaterialTheme.colorScheme.onSurface)
+                        MiniStat(stringResource(R.string.stat_synced), state.lastResult!!.success, EvatarColors.DarkSuccess)
+                        MiniStat(stringResource(R.string.stat_errors), state.lastResult!!.failed, EvatarColors.DarkError)
+                        MiniStat(stringResource(R.string.stat_total), state.lastResult!!.total, MaterialTheme.colorScheme.onSurface)
                     }
                     Spacer(modifier = Modifier.height(12.dp))
                 }
@@ -164,29 +128,23 @@ fun SettingsTab(
                 // Sync controls
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
-                        onClick = {
-                            scope.launch {
-                                isSyncing = true
-                                lastResult = withContext(Dispatchers.IO) { syncManager.runSync() }
-                                isSyncing = false
-                            }
-                        },
-                        enabled = serverConnected && !isSyncing,
+                        onClick = { viewModel.manualSync() },
+                        enabled = state.serverConnected && !state.isSyncing,
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp),
                     ) {
-                        if (isSyncing) {
+                        if (state.isSyncing) {
                             CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color.White)
                             Spacer(modifier = Modifier.width(6.dp))
                         }
-                        Text(if (isSyncing) "同步中..." else "手动同步")
+                        Text(if (state.isSyncing) "同步中..." else "手动同步")
                     }
 
                     OutlinedButton(
                         onClick = {
-                            if (isKeepAliveRunning) {
+                            if (state.isKeepAliveRunning) {
                                 KeepAliveService.stop(context)
-                                isKeepAliveRunning = false
+                                viewModel.setKeepAlive(false)
                             } else {
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(context)) {
                                     overlayLauncher.launch(
@@ -195,18 +153,18 @@ fun SettingsTab(
                                     )
                                 } else {
                                     KeepAliveService.start(context)
-                                    isKeepAliveRunning = true
+                                    viewModel.setKeepAlive(true)
                                 }
                             }
                         },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp),
                     ) {
-                        Text(if (isKeepAliveRunning) "关闭悬浮窗" else "悬浮窗保活")
+                        Text(if (state.isKeepAliveRunning) "关闭悬浮窗" else "悬浮窗保活")
                     }
                 }
 
-                if (!serverConnected) {
+                if (!state.serverConnected) {
                     Text(
                         stringResource(R.string.hint_connect_server),
                         style = EvatarTypography.caption1,
@@ -268,7 +226,11 @@ fun SettingsTab(
         // ── About section ──
         SectionHeader(stringResource(R.string.setting_about))
         SettingsGroup {
-            SettingsInfo("版本", "0.3.0")
+            val versionName = remember {
+                try { context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "unknown" }
+                catch (_: Exception) { "unknown" }
+            }
+            SettingsInfo("版本", versionName)
             SettingsInfo("设备ID", syncManager.deviceId.take(24) + "...")
         }
 

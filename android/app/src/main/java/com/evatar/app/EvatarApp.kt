@@ -14,6 +14,7 @@ class EvatarApp : Application() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannels()
+        com.evatar.app.sync.WorkScheduler.schedulePeriodicSync(this)
     }
 
     private fun createNotificationChannels() {

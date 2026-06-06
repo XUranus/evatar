@@ -9,8 +9,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Lightbulb
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,66 +16,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.evatar.app.network.ApiClient
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.evatar.app.ui.theme.EvatarColors
 import com.evatar.app.ui.theme.EvatarTypography
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import org.json.JSONObject
-
-data class UiDynamic(
-    val id: Int, val title: String, val summary: String, val content: String,
-    val category: String, val confidence: Double, val isRead: Boolean, val isPinned: Boolean, val createdAt: String,
-)
+import com.evatar.app.viewmodel.DynamicViewModel
+import com.evatar.app.viewmodel.UiDynamic
 
 @Composable
-fun DynamicTab(modifier: Modifier = Modifier) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val apiClient = remember { ApiClient.getInstance(context) }
-    val syncManager = remember { com.evatar.app.sync.SyncManager(context) }
-
-    var items by remember { mutableStateOf(listOf<UiDynamic>()) }
+fun DynamicTab(modifier: Modifier = Modifier, viewModel: DynamicViewModel = viewModel()) {
+    val state by viewModel.state.collectAsState()
     var expandedId by remember { mutableIntStateOf(-1) }
-    var filter by remember { mutableStateOf("") }
-    var triggering by remember { mutableStateOf(false) }
-    var loading by remember { mutableStateOf(true) }
-    var serverConnected by remember { mutableStateOf(false) }
-    var isSyncing by remember { mutableStateOf(false) }
-
-    // Auto-check connection once
-    LaunchedEffect(Unit) {
-        serverConnected = withContext(Dispatchers.IO) { apiClient.checkHealth() }
-    }
-
-    fun load() {
-        scope.launch {
-            loading = true
-            val json = withContext(Dispatchers.IO) { apiClient.getDynamics(filter.ifEmpty { null }) }
-            val arr = json.optJSONArray("items") ?: org.json.JSONArray()
-            val list = mutableListOf<UiDynamic>()
-            for (i in 0 until arr.length()) {
-                val obj = arr.optJSONObject(i) ?: continue
-                list.add(UiDynamic(
-                    id = obj.optInt("id"), title = obj.optString("title", ""),
-                    summary = obj.optString("summary", ""), content = obj.optString("content", ""),
-                    category = obj.optString("category", "note"), confidence = obj.optDouble("confidence", 0.5),
-                    isRead = obj.optBoolean("is_read", false), isPinned = obj.optBoolean("is_pinned", false),
-                    createdAt = obj.optString("created_at", ""),
-                ))
-            }
-            items = list
-            loading = false
-        }
-    }
-
-    LaunchedEffect(filter) { load() }
 
     Column(modifier = modifier.fillMaxSize()) {
         // Header with connection indicator and sync button
@@ -93,27 +45,18 @@ fun DynamicTab(modifier: Modifier = Modifier) {
                 modifier = Modifier
                     .size(8.dp)
                     .clip(CircleShape)
-                    .background(if (serverConnected) EvatarColors.DarkSuccess else EvatarColors.DarkError)
+                    .background(if (state.serverConnected) EvatarColors.DarkSuccess else EvatarColors.DarkError)
             )
 
             Spacer(modifier = Modifier.width(12.dp))
 
             // Sync button
             IconButton(
-                onClick = {
-                    if (!isSyncing) {
-                        scope.launch {
-                            isSyncing = true
-                            withContext(Dispatchers.IO) { syncManager.runSync() }
-                            load() // refresh dynamics after sync
-                            isSyncing = false
-                        }
-                    }
-                },
-                enabled = serverConnected && !isSyncing,
+                onClick = { viewModel.triggerSync() },
+                enabled = state.serverConnected && !state.isSyncing,
                 modifier = Modifier.size(36.dp),
             ) {
-                if (isSyncing) {
+                if (state.isSyncing) {
                     CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                 } else {
                     Icon(Icons.Outlined.Refresh, contentDescription = "同步", modifier = Modifier.size(20.dp))
@@ -130,8 +73,8 @@ fun DynamicTab(modifier: Modifier = Modifier) {
             val filters = listOf("" to "全部", "insight" to "💡 洞察", "reminder" to "⏰ 提醒", "report" to "📊 报告", "note" to "📝 笔记")
             items(filters) { (key, label) ->
                 FilterChip(
-                    selected = filter == key,
-                    onClick = { filter = key },
+                    selected = state.filter == key,
+                    onClick = { viewModel.setFilter(key) },
                     label = { Text(label, style = EvatarTypography.subheadline) },
                     shape = RoundedCornerShape(20.dp),
                     colors = FilterChipDefaults.filterChipColors(
@@ -142,11 +85,11 @@ fun DynamicTab(modifier: Modifier = Modifier) {
             }
         }
 
-        if (loading) {
+        if (state.loading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(modifier = Modifier.size(32.dp), strokeWidth = 2.dp)
             }
-        } else if (items.isEmpty()) {
+        } else if (state.items.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Outlined.Article, contentDescription = null,
@@ -162,7 +105,7 @@ fun DynamicTab(modifier: Modifier = Modifier) {
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                items(items, key = { it.id }) { item ->
+                items(state.items, key = { it.id }) { item ->
                     DynamicCard(
                         item = item,
                         expanded = expandedId == item.id,

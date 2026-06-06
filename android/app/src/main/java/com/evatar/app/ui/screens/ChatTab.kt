@@ -20,141 +20,51 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.evatar.app.network.ApiClient
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.evatar.app.ui.theme.EvatarColors
 import com.evatar.app.ui.theme.EvatarTypography
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import org.json.JSONObject
-
-data class UiConversation(val id: String, val title: String, val lastMessage: String, val messageCount: Int)
-data class UiMessage(val role: String, val content: String, val toolCalls: String? = null)
+import com.evatar.app.viewmodel.ChatViewModel
+import com.evatar.app.viewmodel.UiConversation
+import com.evatar.app.viewmodel.UiMessage
 
 @Composable
-fun ChatTab(modifier: Modifier = Modifier) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val apiClient = remember { ApiClient.getInstance(context) }
-
-    var conversations by remember { mutableStateOf(listOf<UiConversation>()) }
-    var activeConvId by remember { mutableStateOf<String?>(null) }
-    var messages by remember { mutableStateOf(listOf<UiMessage>()) }
+fun ChatTab(modifier: Modifier = Modifier, viewModel: ChatViewModel = viewModel()) {
+    val state by viewModel.state.collectAsState()
     var input by remember { mutableStateOf("") }
-    var sending by remember { mutableStateOf(false) }
-    var loadingConversations by remember { mutableStateOf(true) }
-    var lastFailedMessage by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
 
-    fun loadConversations() {
-        scope.launch {
-            loadingConversations = true
-            val arr = withContext(Dispatchers.IO) { apiClient.getConversations() }
-            val list = mutableListOf<UiConversation>()
-            for (i in 0 until arr.length()) {
-                val obj = arr.optJSONObject(i) ?: continue
-                list.add(UiConversation(
-                    id = obj.optString("id"),
-                    title = obj.optString("title", "新对话"),
-                    lastMessage = obj.optString("last_message", ""),
-                    messageCount = obj.optInt("message_count", 0),
-                ))
-            }
-            conversations = list
-            loadingConversations = false
-        }
-    }
+    LaunchedEffect(state.messages.size) { if (state.messages.isNotEmpty()) listState.animateScrollToItem(state.messages.size - 1) }
 
-    fun loadMessages(convId: String) {
-        scope.launch {
-            val arr = withContext(Dispatchers.IO) { apiClient.getConversationMessages(convId) }
-            val list = mutableListOf<UiMessage>()
-            for (i in 0 until arr.length()) {
-                val obj = arr.optJSONObject(i) ?: continue
-                list.add(UiMessage(
-                    role = obj.optString("role", "user"),
-                    content = obj.optString("content", ""),
-                    toolCalls = if (obj.has("tool_calls") && !obj.isNull("tool_calls")) obj.optString("tool_calls") else null,
-                ))
-            }
-            messages = list
-        }
-    }
-
-    fun doSend(text: String, isRetry: Boolean = false) {
-        sending = true
-        lastFailedMessage = null
-        if (!isRetry) {
-            messages = messages + UiMessage("user", text)
-        }
-
-        scope.launch {
-            val result = withContext(Dispatchers.IO) { apiClient.sendMessage(text, activeConvId) }
-            if (result.success && result.data != null) {
-                activeConvId = result.data.optString("conversation_id")
-                val msg = result.data.optJSONObject("message")
-                if (msg != null) {
-                    messages = messages + UiMessage(
-                        role = "assistant",
-                        content = msg.optString("content", ""),
-                        toolCalls = if (msg.has("tool_calls") && !msg.isNull("tool_calls")) msg.optString("tool_calls") else null,
-                    )
-                }
-                loadConversations()
-            } else {
-                lastFailedMessage = text
-                messages = messages + UiMessage("assistant", "发送失败: ${result.errorMessage}")
-            }
-            sending = false
-        }
-    }
-
-    LaunchedEffect(Unit) { loadConversations() }
-    LaunchedEffect(messages.size) { if (messages.isNotEmpty()) listState.animateScrollToItem(messages.size - 1) }
-
-    if (activeConvId == null) {
+    if (state.activeConvId == null) {
         // Conversation list
         ConversationList(
-            conversations = conversations,
-            loading = loadingConversations,
-            onSelect = { activeConvId = it.id; loadMessages(it.id) },
-            onNew = {
-                activeConvId = ""  // empty string = new unsaved conversation
-                messages = listOf(UiMessage("assistant", "你好！我是 Evatar AI 助手。\n\n搜索截图知识库、搜索互联网、上传图片分析"))
-            },
-            onDelete = { conv ->
-                scope.launch {
-                    withContext(Dispatchers.IO) { apiClient.deleteConversation(conv.id) }
-                    loadConversations()
-                }
-            },
+            conversations = state.conversations,
+            loading = state.loading,
+            onSelect = { viewModel.selectConversation(it.id) },
+            onNew = { viewModel.startNewConversation() },
+            onDelete = { conv -> viewModel.deleteConversation(conv.id) },
             modifier = modifier,
         )
     } else {
         // Chat view
         ChatView(
-            messages = messages,
+            messages = state.messages,
             input = input,
             onInputChange = { input = it },
             onSend = {
                 val text = input.trim()
-                if (text.isNotEmpty() && !sending) { input = ""; doSend(text) }
+                if (text.isNotEmpty() && !state.sending) { input = ""; viewModel.sendMessage(text) }
             },
-            sending = sending,
-            lastFailedMessage = lastFailedMessage,
-            onRetry = { lastFailedMessage?.let { doSend(it, isRetry = true) } },
-            onCancel = { lastFailedMessage = null },
-            onBack = { activeConvId = null; messages = emptyList(); loadConversations() },
-            onNewChat = {
-                activeConvId = ""  // sentinel: new unsaved conversation
-                messages = listOf(UiMessage("assistant", "新对话已开始，请输入你的问题。"))
-            },
+            sending = state.sending,
+            lastFailedMessage = state.lastFailedMessage,
+            onRetry = { state.lastFailedMessage?.let { viewModel.sendMessage(it, isRetry = true) } },
+            onCancel = { viewModel.cancelRetry() },
+            onBack = { viewModel.goBackToList() },
+            onNewChat = { viewModel.startNewConversation() },
             modifier = modifier,
         )
     }

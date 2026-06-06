@@ -28,11 +28,13 @@ object WorkScheduler {
             ExistingPeriodicWorkPolicy.KEEP,
             request
         )
+        setScheduled(context, true)
         Log.i(TAG, "Periodic sync scheduled (every 30 min, requires network)")
     }
 
     fun cancelSync(context: Context) {
         WorkManager.getInstance(context).cancelUniqueWork(UNIQUE_WORK_NAME)
+        setScheduled(context, false)
         Log.i(TAG, "Periodic sync cancelled")
     }
 

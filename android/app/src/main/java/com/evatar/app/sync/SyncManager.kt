@@ -1,5 +1,6 @@
 package com.evatar.app.sync
 
+import android.content.ContentUris
 import android.content.Context
 import android.os.Build
 import android.provider.MediaStore
@@ -82,12 +83,25 @@ class SyncManager(context: Context) {
 
     private fun scanMediaStoreSince(sinceMs: Long): List<MediaStorePhoto> {
         val results = mutableListOf<MediaStorePhoto>()
-        val projection = arrayOf(
-            MediaStore.Images.Media._ID, MediaStore.Images.Media.DISPLAY_NAME,
-            MediaStore.Images.Media.DATA, MediaStore.Images.Media.SIZE,
-            MediaStore.Images.Media.DATE_ADDED, MediaStore.Images.Media.MIME_TYPE,
-            MediaStore.Images.Media.RELATIVE_PATH,
-        )
+
+        // On API 29+, avoid deprecated DATA column; use content URI instead
+        val useDataColumn = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
+
+        val projection = if (useDataColumn) {
+            arrayOf(
+                MediaStore.Images.Media._ID, MediaStore.Images.Media.DISPLAY_NAME,
+                MediaStore.Images.Media.DATA, MediaStore.Images.Media.SIZE,
+                MediaStore.Images.Media.DATE_ADDED, MediaStore.Images.Media.MIME_TYPE,
+                MediaStore.Images.Media.RELATIVE_PATH,
+            )
+        } else {
+            arrayOf(
+                MediaStore.Images.Media._ID, MediaStore.Images.Media.DISPLAY_NAME,
+                MediaStore.Images.Media.SIZE,
+                MediaStore.Images.Media.DATE_ADDED, MediaStore.Images.Media.MIME_TYPE,
+                MediaStore.Images.Media.RELATIVE_PATH,
+            )
+        }
 
         val parts = mutableListOf(
             "(${MediaStore.Images.Media.RELATIVE_PATH} LIKE ? OR ${MediaStore.Images.Media.DISPLAY_NAME} LIKE ?)"
@@ -106,23 +120,29 @@ class SyncManager(context: Context) {
             )?.use { cursor ->
                 val idCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
                 val nameCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
-                val dataCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA)
+                val dataCol = if (useDataColumn) cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA) else -1
                 val sizeCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.SIZE)
                 val dateCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_ADDED)
                 val mimeCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.MIME_TYPE)
-
                 val relPathIdx = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.RELATIVE_PATH)
 
                 while (cursor.moveToNext()) {
-                    val path = cursor.getString(dataCol) ?: continue
+                    val id = cursor.getLong(idCol)
                     val relativePath = cursor.getString(relPathIdx) ?: ""
 
                     // Skip screenshots from excluded apps
                     if (isExcludedByPath(relativePath)) continue
 
+                    // On API 29+, build content URI; on older APIs, use DATA column
+                    val path = if (useDataColumn) {
+                        cursor.getString(dataCol) ?: continue
+                    } else {
+                        ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id).toString()
+                    }
+
                     results.add(
                         MediaStorePhoto(
-                            id = cursor.getLong(idCol), filePath = path,
+                            id = id, filePath = path,
                             displayName = cursor.getString(nameCol) ?: "unknown.jpg",
                             fileSize = cursor.getLong(sizeCol),
                             timestamp = cursor.getLong(dateCol) * 1000,

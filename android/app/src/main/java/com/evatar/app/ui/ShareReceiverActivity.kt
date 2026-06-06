@@ -6,12 +6,10 @@ import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.lifecycle.lifecycleScope
 import com.evatar.app.R
 import com.evatar.app.network.ApiClient
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -22,8 +20,6 @@ class ShareReceiverActivity : ComponentActivity() {
     companion object {
         private const val TAG = "ShareReceiverActivity"
     }
-
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -51,7 +47,7 @@ class ShareReceiverActivity : ComponentActivity() {
             return
         }
 
-        scope.launch {
+        lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val tempFile = copyUriToTempFile(imageUri)
                 if (tempFile == null) {
@@ -101,7 +97,7 @@ class ShareReceiverActivity : ComponentActivity() {
             return
         }
 
-        scope.launch {
+        lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val apiClient = ApiClient.getInstance(this@ShareReceiverActivity)
                 val result = apiClient.sendMessage(message = text, conversationId = null)
@@ -140,8 +136,4 @@ class ShareReceiverActivity : ComponentActivity() {
         }
     }
 
-    override fun onDestroy() {
-        scope.cancel()
-        super.onDestroy()
-    }
 }

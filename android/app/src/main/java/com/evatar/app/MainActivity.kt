@@ -12,10 +12,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import com.evatar.app.ui.AppNavigation
 import com.evatar.app.ui.theme.EvatarTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -31,29 +35,26 @@ class MainActivity : ComponentActivity() {
         if (denied.isNotEmpty()) {
             android.util.Log.w("MainActivity", "Denied permissions: $denied")
         }
+        // Start sync service and register device only after permissions are handled
+        com.evatar.app.sync.SyncService.start(this)
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val apiClient = com.evatar.app.network.ApiClient.getInstance(this@MainActivity)
+                val syncManager = com.evatar.app.sync.SyncManager(this@MainActivity)
+                apiClient.registerDevice(syncManager.deviceId)
+            } catch (e: Exception) {
+                android.util.Log.w("MainActivity", "Device registration failed: ${e.message}")
+            }
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestPermissions()
 
-        // Auto-start sync service
-        com.evatar.app.sync.SyncService.start(this)
-
-        // Register device with server for push notifications
-        Thread {
-            try {
-                val apiClient = com.evatar.app.network.ApiClient.getInstance(this)
-                val syncManager = com.evatar.app.sync.SyncManager(this)
-                apiClient.registerDevice(syncManager.deviceId)
-            } catch (e: Exception) {
-                android.util.Log.w("MainActivity", "Device registration failed: ${e.message}")
-            }
-        }.start()
-
         setContent {
             val prefs = remember { getSharedPreferences(PREF_NAME, MODE_PRIVATE) }
-            var themeMode by remember { mutableStateOf(prefs.getString(KEY_THEME, "dark") ?: "dark") }
+            var themeMode by rememberSaveable { mutableStateOf(prefs.getString(KEY_THEME, "dark") ?: "dark") }
 
             val darkTheme = when (themeMode) {
                 "light" -> false

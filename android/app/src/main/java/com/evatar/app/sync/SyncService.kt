@@ -2,18 +2,18 @@ package com.evatar.app.sync
 
 import android.app.Notification
 import android.app.PendingIntent
-import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.lifecycle.LifecycleService
+import androidx.lifecycle.lifecycleScope
 import com.evatar.app.EvatarApp
 import com.evatar.app.MainActivity
 import com.evatar.app.R
 import kotlinx.coroutines.*
 
-class SyncService : Service() {
+class SyncService : LifecycleService() {
 
     companion object {
         private const val TAG = "SyncService"
@@ -29,7 +29,6 @@ class SyncService : Service() {
         }
     }
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var syncJob: Job? = null
     private lateinit var syncManager: SyncManager
 
@@ -39,11 +38,12 @@ class SyncService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        super.onStartCommand(intent, flags, startId)
         startForeground(NOTIFICATION_ID, buildNotification("正在同步..."))
 
         // Cancel previous loop before starting new one
         syncJob?.cancel()
-        syncJob = scope.launch {
+        syncJob = lifecycleScope.launch(Dispatchers.IO) {
             while (isActive) {
                 try {
                     if (syncManager.apiClient.checkHealth()) {
@@ -72,11 +72,13 @@ class SyncService : Service() {
 
     override fun onDestroy() {
         syncJob?.cancel()
-        scope.cancel()
         super.onDestroy()
     }
 
-    override fun onBind(intent: Intent?): IBinder? = null
+    override fun onBind(intent: Intent): android.os.IBinder? {
+        super.onBind(intent)
+        return null
+    }
 
     private fun buildNotification(text: String): Notification {
         val pi = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java),

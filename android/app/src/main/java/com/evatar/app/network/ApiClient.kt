@@ -1,8 +1,12 @@
 package com.evatar.app.network
 
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
@@ -26,6 +30,8 @@ class ApiClient private constructor(private val context: Context) {
         private const val PREF_NAME = "evatar_prefs"
         private const val KEY_SERVER_URL = "server_url"
         private const val DEFAULT_SERVER_URL = ""
+        private const val MAX_RETRIES = 3
+        private val RETRY_DELAYS = longArrayOf(1000, 2000, 4000)
 
         @Volatile
         private var INSTANCE: ApiClient? = null
@@ -49,6 +55,14 @@ class ApiClient private constructor(private val context: Context) {
         .build()
 
     val deviceName: String by lazy { "${Build.MANUFACTURER} ${Build.MODEL}" }
+
+    val appVersion: String by lazy {
+        try {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "unknown"
+        } catch (e: Exception) {
+            "unknown"
+        }
+    }
 
     // Cache server URL in memory
     @Volatile
@@ -77,12 +91,36 @@ class ApiClient private constructor(private val context: Context) {
         return response.use { transform(it) }
     }
 
+    /** Execute a request with retry logic. */
+    private inline fun <T> executeWithRetry(request: Request, default: T, transform: (Response) -> T): T {
+        var lastException: Exception? = null
+        for (attempt in 0 until MAX_RETRIES) {
+            try {
+                return execute(request, transform)
+            } catch (e: java.net.SocketTimeoutException) {
+                lastException = e
+                Log.w(TAG, "Request timeout, attempt ${attempt + 1}/$MAX_RETRIES")
+            } catch (e: java.net.ConnectException) {
+                lastException = e
+                Log.w(TAG, "Connection failed, attempt ${attempt + 1}/$MAX_RETRIES")
+            } catch (e: Exception) {
+                throw e // Non-retryable error
+            }
+            if (attempt < MAX_RETRIES - 1) {
+                try { Thread.sleep(RETRY_DELAYS[attempt]) } catch (_: InterruptedException) { break }
+            }
+        }
+        Log.w(TAG, "Request failed after $MAX_RETRIES attempts: ${lastException?.message}")
+        return default
+    }
+
     // ── Health ──
 
-    fun checkHealth(): Boolean {
-        return try {
+    suspend fun checkHealth(): Boolean = withContext(Dispatchers.IO) {
+        if (!isServerConfigured()) return@withContext false
+        try {
             val request = Request.Builder().url("${getServerUrl()}/api/health").get().build()
-            execute(request) { it.isSuccessful }
+            executeWithRetry(request, false) { it.isSuccessful }
         } catch (e: Exception) {
             Log.w(TAG, "checkHealth: ${e.javaClass.simpleName}: ${e.message}")
             false
@@ -93,10 +131,11 @@ class ApiClient private constructor(private val context: Context) {
 
     data class SyncState(val lastSyncedTsMs: Long = 0, val totalSynced: Int = 0)
 
-    fun getSyncState(deviceId: String): SyncState {
-        return try {
+    suspend fun getSyncState(deviceId: String): SyncState = withContext(Dispatchers.IO) {
+        if (!isServerConfigured()) return@withContext SyncState()
+        try {
             val request = Request.Builder().url("${getServerUrl()}/api/photos/sync-state?device_id=$deviceId").get().build()
-            execute(request) { resp ->
+            executeWithRetry(request, SyncState()) { resp ->
                 if (resp.isSuccessful) {
                     val json = JSONObject(resp.body?.string() ?: "{}")
                     SyncState(json.optLong("last_synced_ts_ms", 0), json.optInt("total_synced", 0))
@@ -110,13 +149,14 @@ class ApiClient private constructor(private val context: Context) {
 
     // ── Upload ──
 
-    fun uploadPhoto(
+    suspend fun uploadPhoto(
         filePath: String, deviceId: String, localMediaStoreId: Long,
         displayName: String, timestamp: Long, mimeType: String,
-    ): Result<Int> {
-        return try {
+    ): Result<Int> = withContext(Dispatchers.IO) {
+        if (!isServerConfigured()) return@withContext Result.failure(Exception("Server not configured"))
+        try {
             val file = File(filePath)
-            if (!file.exists()) return Result.failure(Exception("File not found"))
+            if (!file.exists()) return@withContext Result.failure(Exception("File not found"))
 
             val body = MultipartBody.Builder().setType(MultipartBody.FORM)
                 .addFormDataPart("file", displayName, file.asRequestBody(mimeType.toMediaTypeOrNull()))
@@ -129,14 +169,29 @@ class ApiClient private constructor(private val context: Context) {
                 .build()
 
             val request = Request.Builder().url("${getServerUrl()}/api/photos/upload").post(body).build()
-            execute(request) { resp ->
-                if (resp.isSuccessful) {
-                    val json = JSONObject(resp.body?.string() ?: "{}")
-                    Result.success(json.optInt("id", -1))
-                } else {
-                    Result.failure(Exception("HTTP ${resp.code}"))
+            var lastException: Exception? = null
+            for (attempt in 0 until MAX_RETRIES) {
+                try {
+                    return@withContext execute(request) { resp ->
+                        if (resp.isSuccessful) {
+                            val json = JSONObject(resp.body?.string() ?: "{}")
+                            Result.success(json.optInt("id", -1))
+                        } else {
+                            Result.failure(Exception("HTTP ${resp.code}"))
+                        }
+                    }
+                } catch (e: java.net.SocketTimeoutException) {
+                    lastException = e
+                    Log.w(TAG, "uploadPhoto timeout, attempt ${attempt + 1}/$MAX_RETRIES")
+                } catch (e: java.net.ConnectException) {
+                    lastException = e
+                    Log.w(TAG, "uploadPhoto connection failed, attempt ${attempt + 1}/$MAX_RETRIES")
+                }
+                if (attempt < MAX_RETRIES - 1) {
+                    try { kotlinx.coroutines.delay(RETRY_DELAYS[attempt]) } catch (_: Exception) { break }
                 }
             }
+            Result.failure(lastException ?: Exception("Upload failed after retries"))
         } catch (e: Exception) {
             Log.e(TAG, "uploadPhoto error", e)
             Result.failure(e)
@@ -150,8 +205,9 @@ class ApiClient private constructor(private val context: Context) {
         val errorMessage: String = "", val statusCode: Int = 0,
     )
 
-    fun sendMessage(message: String, conversationId: String?, filePath: String? = null): ChatResult {
-        return try {
+    suspend fun sendMessage(message: String, conversationId: String?, filePath: String? = null): ChatResult = withContext(Dispatchers.IO) {
+        if (!isServerConfigured()) return@withContext ChatResult(success = false, errorMessage = "Server not configured")
+        try {
             val bodyBuilder = MultipartBody.Builder().setType(MultipartBody.FORM)
                 .addFormDataPart("message", message)
             if (conversationId != null) bodyBuilder.addFormDataPart("conversation_id", conversationId)
@@ -163,14 +219,33 @@ class ApiClient private constructor(private val context: Context) {
             }
 
             val request = Request.Builder().url("${getServerUrl()}/api/chat/send-with-file").post(bodyBuilder.build()).build()
-            execute(request) { resp ->
-                if (resp.isSuccessful) {
-                    ChatResult(success = true, data = JSONObject(resp.body?.string() ?: "{}"))
-                } else {
-                    val errBody = resp.body?.string() ?: ""
-                    val errMsg = try { JSONObject(errBody).optString("detail", errBody) } catch (_: Exception) { errBody }
-                    ChatResult(success = false, errorMessage = "HTTP ${resp.code}: $errMsg", statusCode = resp.code)
+            var lastException: Exception? = null
+            for (attempt in 0 until MAX_RETRIES) {
+                try {
+                    return@withContext execute(request) { resp ->
+                        if (resp.isSuccessful) {
+                            ChatResult(success = true, data = JSONObject(resp.body?.string() ?: "{}"))
+                        } else {
+                            val errBody = resp.body?.string() ?: ""
+                            val errMsg = try { JSONObject(errBody).optString("detail", errBody) } catch (_: Exception) { errBody }
+                            ChatResult(success = false, errorMessage = "HTTP ${resp.code}: $errMsg", statusCode = resp.code)
+                        }
+                    }
+                } catch (e: java.net.SocketTimeoutException) {
+                    lastException = e
+                } catch (e: java.net.ConnectException) {
+                    lastException = e
+                } catch (e: Exception) {
+                    return@withContext ChatResult(success = false, errorMessage = "${e.javaClass.simpleName}: ${e.message}")
                 }
+                if (attempt < MAX_RETRIES - 1) {
+                    try { kotlinx.coroutines.delay(RETRY_DELAYS[attempt]) } catch (_: Exception) { break }
+                }
+            }
+            when (lastException) {
+                is java.net.SocketTimeoutException -> ChatResult(success = false, errorMessage = "请求超时，AI 可能正在处理大量内容")
+                is java.net.ConnectException -> ChatResult(success = false, errorMessage = "无法连接服务端: ${lastException?.message}")
+                else -> ChatResult(success = false, errorMessage = "请求失败: ${lastException?.message}")
             }
         } catch (e: java.net.SocketTimeoutException) {
             ChatResult(success = false, errorMessage = "请求超时，AI 可能正在处理大量内容")
@@ -182,10 +257,11 @@ class ApiClient private constructor(private val context: Context) {
         }
     }
 
-    fun getConversations(): JSONArray {
-        return try {
+    suspend fun getConversations(): JSONArray = withContext(Dispatchers.IO) {
+        if (!isServerConfigured()) return@withContext JSONArray()
+        try {
             val request = Request.Builder().url("${getServerUrl()}/api/chat/conversations").get().build()
-            execute(request) { resp ->
+            executeWithRetry(request, JSONArray()) { resp ->
                 if (resp.isSuccessful) {
                     JSONObject(resp.body?.string() ?: "{}").optJSONArray("conversations") ?: JSONArray()
                 } else JSONArray()
@@ -196,20 +272,22 @@ class ApiClient private constructor(private val context: Context) {
         }
     }
 
-    fun deleteConversation(conversationId: String): Boolean {
-        return try {
+    suspend fun deleteConversation(conversationId: String): Boolean = withContext(Dispatchers.IO) {
+        if (!isServerConfigured()) return@withContext false
+        try {
             val request = Request.Builder().url("${getServerUrl()}/api/chat/conversations/$conversationId").delete().build()
-            execute(request) { it.isSuccessful }
+            executeWithRetry(request, false) { it.isSuccessful }
         } catch (e: Exception) {
             Log.e(TAG, "deleteConversation error", e)
             false
         }
     }
 
-    fun getConversationMessages(conversationId: String): JSONArray {
-        return try {
+    suspend fun getConversationMessages(conversationId: String): JSONArray = withContext(Dispatchers.IO) {
+        if (!isServerConfigured()) return@withContext JSONArray()
+        try {
             val request = Request.Builder().url("${getServerUrl()}/api/chat/conversations/$conversationId").get().build()
-            execute(request) { resp ->
+            executeWithRetry(request, JSONArray()) { resp ->
                 if (resp.isSuccessful) {
                     JSONObject(resp.body?.string() ?: "{}").optJSONArray("messages") ?: JSONArray()
                 } else JSONArray()
@@ -225,34 +303,36 @@ class ApiClient private constructor(private val context: Context) {
     /**
      * Register this device with the server for push notifications.
      */
-    fun registerDevice(deviceId: String): Boolean {
-        return try {
+    suspend fun registerDevice(deviceId: String): Boolean = withContext(Dispatchers.IO) {
+        if (!isServerConfigured()) return@withContext false
+        try {
             val body = JSONObject().apply {
                 put("device_id", deviceId)
                 put("token", deviceId)  // placeholder until FCM is integrated
                 put("platform", "android")
                 put("device_name", deviceName)
                 put("device_model", "${Build.MODEL}")
-                put("app_version", "0.3.0")
+                put("app_version", appVersion)
             }.toString().toRequestBody("application/json".toMediaTypeOrNull())
 
             val request = Request.Builder()
                 .url("${getServerUrl()}/api/push/register")
                 .post(body)
                 .build()
-            execute(request) { it.isSuccessful }
+            executeWithRetry(request, false) { it.isSuccessful }
         } catch (e: Exception) {
             Log.e(TAG, "registerDevice error", e)
             false
         }
     }
 
-    fun getDynamics(category: String? = null, page: Int = 1, pageSize: Int = 50): JSONObject {
-        return try {
+    suspend fun getDynamics(category: String? = null, page: Int = 1, pageSize: Int = 50): JSONObject = withContext(Dispatchers.IO) {
+        if (!isServerConfigured()) return@withContext JSONObject()
+        try {
             val urlBuilder = StringBuilder("${getServerUrl()}/api/dynamics?page=$page&page_size=$pageSize")
             if (!category.isNullOrEmpty()) urlBuilder.append("&category=$category")
             val request = Request.Builder().url(urlBuilder.toString()).get().build()
-            execute(request) { resp ->
+            executeWithRetry(request, JSONObject()) { resp ->
                 if (resp.isSuccessful) {
                     JSONObject(resp.body?.string() ?: "{}")
                 } else JSONObject()

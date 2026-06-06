@@ -8,6 +8,8 @@ import android.graphics.Paint
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
+import android.provider.Settings
+import android.util.Log
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -36,6 +38,12 @@ class OverlayWindow(private val context: Context) {
 
     fun show() {
         if (isShowing) return
+
+        // Check overlay permission before attempting to show
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(context)) {
+            Log.w("OverlayWindow", "Cannot show overlay: overlay permission not granted")
+            return
+        }
 
         windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 

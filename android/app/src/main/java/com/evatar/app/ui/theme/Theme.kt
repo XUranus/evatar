@@ -93,8 +93,23 @@ fun EvatarTheme(
         }
     }
 
+    val typography = Typography(
+        displayLarge = EvatarTypography.largeTitle,
+        headlineLarge = EvatarTypography.title1,
+        headlineMedium = EvatarTypography.title2,
+        headlineSmall = EvatarTypography.title3,
+        titleLarge = EvatarTypography.headline,
+        bodyLarge = EvatarTypography.body,
+        bodyMedium = EvatarTypography.callout,
+        bodySmall = EvatarTypography.subheadline,
+        labelLarge = EvatarTypography.footnote,
+        labelMedium = EvatarTypography.caption1,
+        labelSmall = EvatarTypography.caption2,
+    )
+
     MaterialTheme(
         colorScheme = colorScheme,
+        typography = typography,
         content = content
     )
 }
