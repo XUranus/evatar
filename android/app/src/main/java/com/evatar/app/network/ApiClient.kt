@@ -358,4 +358,19 @@ class ApiClient private constructor(private val context: Context) {
             JSONObject()
         }
     }
+
+    suspend fun markDynamicAsRead(dynamicId: Int): Boolean = withContext(Dispatchers.IO) {
+        if (!isServerConfigured()) return@withContext false
+        try {
+            val emptyBody = "{}".toRequestBody("application/json".toMediaTypeOrNull())
+            val request = Request.Builder()
+                .url("${getServerUrl()}/api/dynamics/$dynamicId/read")
+                .put(emptyBody)
+                .build()
+            executeWithRetry(request, false) { it.isSuccessful }
+        } catch (e: Exception) {
+            Log.e(TAG, "markDynamicAsRead error", e)
+            false
+        }
+    }
 }

@@ -3,6 +3,7 @@ package com.evatar.app.ui.screens
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -18,17 +19,21 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.evatar.app.R
 import com.evatar.app.ui.theme.EvatarColors
 import com.evatar.app.ui.theme.EvatarTypography
 import com.evatar.app.ui.components.MarkdownText
@@ -38,10 +43,19 @@ import com.evatar.app.viewmodel.UiMessage
 import kotlinx.coroutines.delay
 
 @Composable
-fun ChatTab(modifier: Modifier = Modifier, viewModel: ChatViewModel = viewModel()) {
+fun ChatTab(
+    modifier: Modifier = Modifier,
+    viewModel: ChatViewModel = viewModel(),
+    onChatActiveChange: (Boolean) -> Unit = {},
+) {
     val state by viewModel.state.collectAsState()
     var input by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
+
+    // Notify parent when chat view is active (for hiding bottom bar)
+    LaunchedEffect(state.activeConvId) {
+        onChatActiveChange(state.activeConvId != null)
+    }
 
     // Periodic auto-refresh conversation list every 30 seconds (when viewing list)
     LaunchedEffect(state.activeConvId) {
@@ -67,7 +81,7 @@ fun ChatTab(modifier: Modifier = Modifier, viewModel: ChatViewModel = viewModel(
             modifier = modifier,
         )
     } else {
-        // Chat view
+        // Chat view (standalone full-screen with swipe-left to go back)
         ChatView(
             messages = state.messages,
             input = input,
@@ -119,7 +133,7 @@ private fun ConversationList(
         Column(modifier = Modifier.fillMaxSize()) {
             // Header
             Text(
-                "AI 助手",
+                stringResource(R.string.chat_title),
                 style = EvatarTypography.largeTitle,
                 color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 8.dp)
@@ -132,10 +146,11 @@ private fun ConversationList(
             } else if (conversations.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("💬", fontSize = 48.sp)
+                        Icon(Icons.Outlined.Forum, contentDescription = null,
+                            modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(modifier = Modifier.height(12.dp))
-                        Text("暂无对话", style = EvatarTypography.headline, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("点击右上角 + 开始新对话", style = EvatarTypography.subheadline, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.chat_empty_title), style = EvatarTypography.headline, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.chat_empty_desc), style = EvatarTypography.subheadline, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             } else {
@@ -168,7 +183,7 @@ private fun ConversationList(
                 shape = CircleShape,
                 modifier = Modifier.padding(20.dp).size(56.dp),
             ) {
-                Icon(Icons.Filled.Add, contentDescription = "新对话", modifier = Modifier.size(24.dp))
+                Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.chat_new_conversation), modifier = Modifier.size(24.dp))
             }
         }
     }
@@ -181,14 +196,14 @@ private fun ConversationRow(conversation: UiConversation, onClick: () -> Unit, o
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("删除对话") },
-            text = { Text("确定删除「${conversation.title}」？") },
+            title = { Text(stringResource(R.string.chat_delete_title)) },
+            text = { Text(stringResource(R.string.chat_delete_confirm, conversation.title)) },
             confirmButton = {
                 TextButton(onClick = { showDeleteDialog = false; onDelete() }) {
-                    Text("删除", color = EvatarColors.DarkError)
+                    Text(stringResource(R.string.chat_delete), color = EvatarColors.DarkError)
                 }
             },
-            dismissButton = { TextButton(onClick = { showDeleteDialog = false }) { Text("取消") } },
+            dismissButton = { TextButton(onClick = { showDeleteDialog = false }) { Text(stringResource(R.string.chat_cancel)) } },
         )
     }
 
@@ -233,7 +248,7 @@ private fun ConversationRow(conversation: UiConversation, onClick: () -> Unit, o
             }
 
             IconButton(onClick = { showDeleteDialog = true }, modifier = Modifier.size(36.dp)) {
-                Icon(Icons.Outlined.Delete, contentDescription = "删除",
+                Icon(Icons.Outlined.Delete, contentDescription = stringResource(R.string.chat_delete),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
             }
         }
@@ -266,7 +281,19 @@ private fun ChatView(
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.size - 1)
     }
 
-    Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures { _, dragAmount ->
+                    // Swipe left to go back
+                    if (dragAmount < -120f) {
+                        onBack()
+                    }
+                }
+            },
+    ) {
         // Top bar
         Surface(
             color = MaterialTheme.colorScheme.surface,
@@ -277,11 +304,11 @@ private fun ChatView(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.Outlined.ArrowBack, contentDescription = "返回", tint = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.Outlined.ArrowBack, contentDescription = stringResource(R.string.chat_back), tint = MaterialTheme.colorScheme.primary)
                 }
-                Text("AI 助手", style = EvatarTypography.headline, modifier = Modifier.weight(1f))
+                Text(stringResource(R.string.chat_title), style = EvatarTypography.headline, modifier = Modifier.weight(1f))
                 TextButton(onClick = onNewChat) {
-                    Text("新对话", style = EvatarTypography.subheadline, color = MaterialTheme.colorScheme.primary)
+                    Text(stringResource(R.string.chat_new_conversation), style = EvatarTypography.subheadline, color = MaterialTheme.colorScheme.primary)
                 }
             }
         }
@@ -320,9 +347,9 @@ private fun ChatView(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("发送失败", style = EvatarTypography.subheadline, color = EvatarColors.DarkError, modifier = Modifier.weight(1f))
-                    TextButton(onClick = onRetry) { Text("重试", color = MaterialTheme.colorScheme.primary) }
-                    TextButton(onClick = onCancel) { Text("取消", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    Text(stringResource(R.string.chat_send_failed), style = EvatarTypography.subheadline, color = EvatarColors.DarkError, modifier = Modifier.weight(1f))
+                    TextButton(onClick = onRetry) { Text(stringResource(R.string.chat_retry), color = MaterialTheme.colorScheme.primary) }
+                    TextButton(onClick = onCancel) { Text(stringResource(R.string.chat_cancel), color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
             }
         }
@@ -341,7 +368,7 @@ private fun ChatView(
                     value = input,
                     onValueChange = onInputChange,
                     modifier = Modifier.weight(1f),
-                    placeholder = { Text("输入消息...", style = EvatarTypography.subheadline) },
+                    placeholder = { Text(stringResource(R.string.chat_input_hint), style = EvatarTypography.subheadline) },
                     maxLines = 4,
                     shape = RoundedCornerShape(20.dp),
                     textStyle = EvatarTypography.body,
@@ -359,7 +386,7 @@ private fun ChatView(
                         containerColor = MaterialTheme.colorScheme.primary,
                     ),
                 ) {
-                    Icon(Icons.Filled.Send, contentDescription = "发送", modifier = Modifier.size(20.dp))
+                    Icon(Icons.Filled.Send, contentDescription = stringResource(R.string.chat_send), modifier = Modifier.size(20.dp))
                 }
             }
         }
@@ -382,18 +409,7 @@ private fun ChatBubble(msg: UiMessage) {
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
     ) {
-        if (!isUser) {
-            Box(
-                modifier = Modifier
-                    .size(30.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text("E", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-        }
+        // No avatar for assistant messages - clean bubble-only layout
 
         Box(
             modifier = Modifier

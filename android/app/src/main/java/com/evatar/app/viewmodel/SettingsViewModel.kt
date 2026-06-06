@@ -46,10 +46,11 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun saveUrl() {
         val trimmed = _state.value.urlField.trim()
+        val context = getApplication<Application>()
         when {
-            trimmed.isEmpty() -> { _state.value = _state.value.copy(urlError = "请输入服务端地址") }
+            trimmed.isEmpty() -> { _state.value = _state.value.copy(urlError = context.getString(com.evatar.app.R.string.onboard_error_empty_url)) }
             !trimmed.startsWith("http://") && !trimmed.startsWith("https://") -> {
-                _state.value = _state.value.copy(urlError = "地址必须以 http:// 或 https:// 开头")
+                _state.value = _state.value.copy(urlError = context.getString(com.evatar.app.R.string.onboard_error_bad_scheme))
             }
             else -> {
                 apiClient.setServerUrl(trimmed)

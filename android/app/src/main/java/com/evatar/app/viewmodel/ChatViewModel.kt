@@ -24,6 +24,7 @@ data class ChatUiState(
 )
 
 class ChatViewModel(app: Application) : AndroidViewModel(app) {
+    private val context = app
     private val apiClient = ApiClient.getInstance(app)
     private val _state = MutableStateFlow(ChatUiState())
     val state: StateFlow<ChatUiState> = _state
@@ -102,12 +103,13 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 )
                 if (!hasError) loadConversations()
             } else {
+                val r = context.resources
                 val errorMsg = when {
-                    result.errorMessage.contains("401") -> "认证失败，请检查 API Key 配置"
-                    result.errorMessage.contains("500") -> "服务端错误，请检查 LLM 配置"
-                    result.errorMessage.contains("timeout", ignoreCase = true) -> "请求超时，请稍后重试"
-                    result.errorMessage.contains("connect", ignoreCase = true) -> "无法连接服务端"
-                    else -> "发送失败: ${result.errorMessage}"
+                    result.errorMessage.contains("401") -> r.getString(com.evatar.app.R.string.chat_error_auth)
+                    result.errorMessage.contains("500") -> r.getString(com.evatar.app.R.string.chat_error_server)
+                    result.errorMessage.contains("timeout", ignoreCase = true) -> r.getString(com.evatar.app.R.string.chat_error_timeout)
+                    result.errorMessage.contains("connect", ignoreCase = true) -> r.getString(com.evatar.app.R.string.chat_error_connect)
+                    else -> r.getString(com.evatar.app.R.string.chat_error_send_prefix, result.errorMessage)
                 }
                 _state.value = _state.value.copy(
                     lastFailedMessage = text, sending = false,

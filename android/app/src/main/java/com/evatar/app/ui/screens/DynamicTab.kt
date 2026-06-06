@@ -2,10 +2,12 @@ package com.evatar.app.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.ExperimentalMaterialApi
@@ -20,11 +22,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.evatar.app.R
 import com.evatar.app.ui.components.MarkdownText
 import com.evatar.app.ui.theme.EvatarColors
 import com.evatar.app.ui.theme.EvatarTypography
@@ -32,12 +39,29 @@ import com.evatar.app.viewmodel.DynamicViewModel
 import com.evatar.app.viewmodel.UiDynamic
 import kotlinx.coroutines.delay
 
+/** Represents a filter category with icon and label. */
+private data class FilterOption(val key: String, val icon: ImageVector, val labelResId: Int)
+
+private val FILTER_OPTIONS = listOf(
+    FilterOption("", Icons.Outlined.List, R.string.dynamic_filter_all),
+    FilterOption("insight", Icons.Outlined.Lightbulb, R.string.dynamic_filter_insight),
+    FilterOption("reminder", Icons.Outlined.Notifications, R.string.dynamic_filter_reminder),
+    FilterOption("report", Icons.Outlined.Assessment, R.string.dynamic_filter_report),
+    FilterOption("note", Icons.Outlined.Article, R.string.dynamic_filter_note),
+)
+
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun DynamicTab(modifier: Modifier = Modifier, viewModel: DynamicViewModel = viewModel()) {
     val state by viewModel.state.collectAsState()
+    val context = LocalContext.current
     var expandedId by remember { mutableIntStateOf(-1) }
     var refreshing by remember { mutableStateOf(false) }
+
+    // Current filter index for swipe navigation
+    val currentFilterIndex = remember(state.filter) {
+        FILTER_OPTIONS.indexOfFirst { it.key == state.filter }.coerceAtLeast(0)
+    }
 
     // Periodic auto-refresh every 60 seconds
     LaunchedEffect(Unit) {
@@ -65,13 +89,30 @@ fun DynamicTab(modifier: Modifier = Modifier, viewModel: DynamicViewModel = view
     }
 
     Box(modifier = modifier.fillMaxSize().pullRefresh(pullRefreshState)) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            // Header with connection indicator and sync button
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures { _, dragAmount ->
+                        val threshold = 80f
+                        if (dragAmount < -threshold) {
+                            // Swipe left -> next category
+                            val nextIndex = (currentFilterIndex + 1) % FILTER_OPTIONS.size
+                            viewModel.setFilter(FILTER_OPTIONS[nextIndex].key)
+                        } else if (dragAmount > threshold) {
+                            // Swipe right -> previous category
+                            val prevIndex = (currentFilterIndex - 1 + FILTER_OPTIONS.size) % FILTER_OPTIONS.size
+                            viewModel.setFilter(FILTER_OPTIONS[prevIndex].key)
+                        }
+                    }
+                },
+        ) {
+            // Header with connection indicator
             Row(
                 modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 16.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("动态", style = EvatarTypography.largeTitle, color = MaterialTheme.colorScheme.onBackground,
+                Text(stringResource(R.string.dynamic_title), style = EvatarTypography.largeTitle, color = MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier.weight(1f))
 
                 // Connection dot
@@ -81,33 +122,17 @@ fun DynamicTab(modifier: Modifier = Modifier, viewModel: DynamicViewModel = view
                         .clip(CircleShape)
                         .background(if (state.serverConnected) EvatarColors.DarkSuccess else EvatarColors.DarkError)
                 )
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                // Sync button
-                IconButton(
-                    onClick = { viewModel.triggerSync() },
-                    enabled = state.serverConnected && !state.isSyncing,
-                    modifier = Modifier.size(36.dp),
-                ) {
-                    if (state.isSyncing) {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                    } else {
-                        Icon(Icons.Outlined.Refresh, contentDescription = "同步", modifier = Modifier.size(20.dp))
-                    }
-                }
             }
 
-            // Filter chips with unread badges
+            // Filter chips with icons and unread badges
             val unreadCounts = state.unreadCounts
             LazyRow(
                 contentPadding = PaddingValues(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.padding(vertical = 8.dp),
             ) {
-                val filters = listOf("" to "全部", "insight" to "💡 洞察", "reminder" to "⏰ 提醒", "report" to "📊 报告", "note" to "📝 笔记")
-                items(filters) { (key, label) ->
-                    val count = if (key.isNotEmpty()) unreadCounts[key] ?: 0
+                items(FILTER_OPTIONS) { option ->
+                    val count = if (option.key.isNotEmpty()) unreadCounts[option.key] ?: 0
                                 else unreadCounts.values.sum()
                     BadgedBox(
                         badge = {
@@ -123,9 +148,16 @@ fun DynamicTab(modifier: Modifier = Modifier, viewModel: DynamicViewModel = view
                         }
                     ) {
                         FilterChip(
-                            selected = state.filter == key,
-                            onClick = { viewModel.setFilter(key) },
-                            label = { Text(label, style = EvatarTypography.subheadline) },
+                            selected = state.filter == option.key,
+                            onClick = { viewModel.setFilter(option.key) },
+                            label = { Text(stringResource(option.labelResId), style = EvatarTypography.subheadline) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = option.icon,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                            },
                             shape = RoundedCornerShape(20.dp),
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
@@ -146,8 +178,8 @@ fun DynamicTab(modifier: Modifier = Modifier, viewModel: DynamicViewModel = view
                         Icon(Icons.Outlined.Article, contentDescription = null,
                             modifier = Modifier.size(56.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
                         Spacer(modifier = Modifier.height(12.dp))
-                        Text("暂无动态", style = EvatarTypography.headline, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("后台会定期分析截图和聊天生成笔记", style = EvatarTypography.subheadline, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.dynamic_empty_title), style = EvatarTypography.headline, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.dynamic_empty_desc), style = EvatarTypography.subheadline, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             } else {
@@ -160,7 +192,14 @@ fun DynamicTab(modifier: Modifier = Modifier, viewModel: DynamicViewModel = view
                         DynamicCard(
                             item = item,
                             expanded = expandedId == item.id,
-                            onToggle = { expandedId = if (expandedId == item.id) -1 else item.id },
+                            onToggle = {
+                                val wasExpanded = expandedId == item.id
+                                expandedId = if (wasExpanded) -1 else item.id
+                                // Mark as read when expanding
+                                if (!wasExpanded && !item.isRead) {
+                                    viewModel.markAsRead(item.id)
+                                }
+                            },
                         )
                     }
                 }
@@ -177,15 +216,16 @@ fun DynamicTab(modifier: Modifier = Modifier, viewModel: DynamicViewModel = view
     }
 }
 
+/** Get the category icon for a dynamic card. */
+private fun categoryIcon(category: String): ImageVector = when (category) {
+    "insight" -> Icons.Outlined.Lightbulb
+    "reminder" -> Icons.Outlined.Notifications
+    "report" -> Icons.Outlined.Assessment
+    else -> Icons.Outlined.Article
+}
+
 @Composable
 private fun DynamicCard(item: UiDynamic, expanded: Boolean, onToggle: () -> Unit) {
-    val categoryEmoji = when (item.category) {
-        "insight" -> "💡"
-        "reminder" -> "⏰"
-        "report" -> "📊"
-        else -> "📝"
-    }
-
     Card(
         modifier = Modifier.fillMaxWidth().clickable { onToggle() },
         shape = RoundedCornerShape(16.dp),
@@ -197,12 +237,20 @@ private fun DynamicCard(item: UiDynamic, expanded: Boolean, onToggle: () -> Unit
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(categoryEmoji, fontSize = 20.sp)
+                Icon(
+                    imageVector = categoryIcon(item.category),
+                    contentDescription = item.category,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 Spacer(modifier = Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(item.title, style = EvatarTypography.headline, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        if (item.isPinned) { Spacer(modifier = Modifier.width(4.dp)); Text("📌", fontSize = 12.sp) }
+                        if (item.isPinned) {
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Icon(Icons.Outlined.PushPin, contentDescription = null, modifier = Modifier.size(12.dp))
+                        }
                         if (!item.isRead) {
                             Spacer(modifier = Modifier.width(6.dp))
                             Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))

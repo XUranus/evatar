@@ -71,6 +71,26 @@ class DynamicViewModel(app: Application) : AndroidViewModel(app) {
         loadDynamics()
     }
 
+    /**
+     * Mark a dynamic item as read via the backend API and update local state.
+     */
+    fun markAsRead(itemId: Int) {
+        viewModelScope.launch {
+            val success = apiClient.markDynamicAsRead(itemId)
+            if (success) {
+                // Update the local item's isRead to true
+                val updatedItems = _state.value.items.map { item ->
+                    if (item.id == itemId) item.copy(isRead = true) else item
+                }
+                // Recalculate unread counts
+                val unreadCounts = updatedItems.filter { !it.isRead }
+                    .groupBy { it.category }
+                    .mapValues { it.value.size }
+                _state.value = _state.value.copy(items = updatedItems, unreadCounts = unreadCounts)
+            }
+        }
+    }
+
     fun triggerSync() {
         viewModelScope.launch {
             _state.value = _state.value.copy(isSyncing = true)

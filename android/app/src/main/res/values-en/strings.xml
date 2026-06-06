@@ -70,4 +70,94 @@
     <string name="setting_language_en">English</string>
     <string name="setting_language_system">System Default</string>
     <string name="setting_language_restart_hint">Language preference saved. Please restart the app to apply.</string>
+
+    <!-- DynamicTab -->
+    <string name="dynamic_title">Dynamics</string>
+    <string name="dynamic_filter_all">All</string>
+    <string name="dynamic_filter_insight">Insights</string>
+    <string name="dynamic_filter_reminder">Reminders</string>
+    <string name="dynamic_filter_report">Reports</string>
+    <string name="dynamic_filter_note">Notes</string>
+    <string name="dynamic_empty_title">No dynamics yet</string>
+    <string name="dynamic_empty_desc">Background AI will analyze screenshots and chats to generate notes</string>
+    <string name="dynamic_mark_read_error">Failed to mark as read</string>
+
+    <!-- ChatTab -->
+    <string name="chat_title">AI Assistant</string>
+    <string name="chat_empty_title">No conversations yet</string>
+    <string name="chat_empty_desc">Tap + at the top right to start a new conversation</string>
+    <string name="chat_new_conversation">New Chat</string>
+    <string name="chat_delete_title">Delete Conversation</string>
+    <string name="chat_delete_confirm">Delete "%s"?</string>
+    <string name="chat_delete">Delete</string>
+    <string name="chat_cancel">Cancel</string>
+    <string name="chat_back">Back</string>
+    <string name="chat_send_failed">Send failed</string>
+    <string name="chat_retry">Retry</string>
+    <string name="chat_input_hint">Type a message…</string>
+    <string name="chat_send">Send</string>
+    <string name="chat_error_auth">Authentication failed, please check API key configuration</string>
+    <string name="chat_error_server">Server error, please check LLM configuration</string>
+    <string name="chat_error_timeout">Request timed out, please try again later</string>
+    <string name="chat_error_connect">Cannot connect to server</string>
+    <string name="chat_error_send_prefix">Send failed: %s</string>
+
+    <!-- SettingsTab -->
+    <string name="settings_saved">Saved</string>
+    <string name="settings_syncing">Syncing…</string>
+    <string name="settings_close_overlay">Close Overlay</string>
+    <string name="settings_section_appearance">Appearance</string>
+    <string name="settings_section_system">System</string>
+    <string name="settings_version">Version</string>
+    <string name="settings_device_id">Device ID</string>
+
+    <!-- Onboarding -->
+    <string name="onboard_welcome_title">Welcome to Evatar</string>
+    <string name="onboard_welcome_desc">Your smart screenshot assistant\nAuto-sync screenshots, AI analyzes content and generates notes</string>
+    <string name="onboard_start_setup">Get Started</string>
+    <string name="onboard_server_title">Connect to Server</string>
+    <string name="onboard_server_desc">Enter the Evatar server address. The server runs on your computer or server.</string>
+    <string name="onboard_server_label">Server URL</string>
+    <string name="onboard_testing">Testing…</string>
+    <string name="onboard_test_connection">Test Connection</string>
+    <string name="onboard_connection_success">Connected</string>
+    <string name="onboard_next">Next</string>
+    <string name="onboard_sync_scope_title">Sync Range</string>
+    <string name="onboard_sync_scope_desc">Choose how far back to sync screenshots. The first sync will upload all screenshots in the selected range.</string>
+    <string name="onboard_sync_start">Start Sync</string>
+    <string name="onboard_syncing_title">Syncing screenshots…</string>
+    <string name="onboard_done_title">Setup Complete!</string>
+    <string name="onboard_done_desc">Screenshot sync is now active. AI will automatically analyze your screenshots and generate notes in the background.\n\nCheck the "Dynamics" page for analysis results, and "Settings" to adjust sync options.</string>
+    <string name="onboard_done_btn">Get Started</string>
+    <string name="onboard_sync_prepare">Preparing sync…</string>
+    <string name="onboard_sync_running">Syncing screenshots…</string>
+    <string name="onboard_sync_progress">Synced %1$d/%2$d</string>
+    <string name="onboard_sync_done">Sync complete: %1$d/%2$d</string>
+    <string name="onboard_error_empty_url">Please enter the server URL</string>
+    <string name="onboard_error_bad_scheme">URL must start with http:// or https://</string>
+    <string name="onboard_error_connection">Cannot connect to server, please check the URL and network</string>
+
+    <!-- Sync time options -->
+    <string name="sync_time_1day_label">1 Day</string>
+    <string name="sync_time_1day_desc">Sync only the last day\'s screenshots</string>
+    <string name="sync_time_3day_label">3 Days</string>
+    <string name="sync_time_3day_desc">Sync the last 3 days of screenshots</string>
+    <string name="sync_time_7day_label">7 Days</string>
+    <string name="sync_time_7day_desc">Sync the last week of screenshots (recommended)</string>
+    <string name="sync_time_30day_label">30 Days</string>
+    <string name="sync_time_30day_desc">Sync the last month of screenshots</string>
+    <string name="sync_time_all_label">All</string>
+    <string name="sync_time_all_desc">Sync all screenshots (may take a long time)</string>
+
+    <!-- API error messages -->
+    <string name="api_error_timeout">Request timed out, AI may be processing large content</string>
+    <string name="api_error_connect">Cannot connect to server: %s</string>
+    <string name="api_error_generic">Request failed: %s</string>
+    <string name="api_error_no_server">Server not configured</string>
+
+    <!-- KeepAlive -->
+    <string name="keepalive_running">Keep-alive service running</string>
+    <string name="keepalive_connected">Connected</string>
+    <string name="keepalive_disconnected">Disconnected</string>
+    <string name="keepalive_error">Error</string>
 </resources>

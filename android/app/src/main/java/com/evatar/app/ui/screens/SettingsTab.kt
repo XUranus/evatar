@@ -110,7 +110,7 @@ fun SettingsTab(
                     Text(stringResource(R.string.setting_save))
                 }
                 if (state.saved) {
-                    Text("已保存", style = EvatarTypography.caption1, color = EvatarColors.DarkSuccess,
+                    Text(stringResource(R.string.settings_saved), style = EvatarTypography.caption1, color = EvatarColors.DarkSuccess,
                         modifier = Modifier.padding(top = 4.dp))
                 }
                 if (state.urlError != null) {
@@ -146,7 +146,7 @@ fun SettingsTab(
                             CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color.White)
                             Spacer(modifier = Modifier.width(6.dp))
                         }
-                        Text(if (state.isSyncing) "同步中..." else "手动同步")
+                        Text(if (state.isSyncing) stringResource(R.string.settings_syncing) else stringResource(R.string.btn_manual_sync))
                     }
 
                     OutlinedButton(
@@ -169,7 +169,7 @@ fun SettingsTab(
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp),
                     ) {
-                        Text(if (state.isKeepAliveRunning) "关闭悬浮窗" else "悬浮窗保活")
+                        Text(if (state.isKeepAliveRunning) stringResource(R.string.settings_close_overlay) else stringResource(R.string.btn_start_keepalive))
                     }
                 }
 
@@ -185,7 +185,7 @@ fun SettingsTab(
         }
 
         // ── Theme section ──
-        SectionHeader("外观")
+        SectionHeader(stringResource(R.string.settings_section_appearance))
         SettingsGroup {
             SettingsRow(
                 icon = Icons.Outlined.Brightness6,
@@ -203,7 +203,7 @@ fun SettingsTab(
         }
 
         // ── System section ──
-        SectionHeader("系统")
+        SectionHeader(stringResource(R.string.settings_section_system))
         SettingsGroup {
             SettingsRow(
                 icon = Icons.Outlined.BatteryChargingFull,
@@ -263,8 +263,8 @@ fun SettingsTab(
                 try { context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "unknown" }
                 catch (_: Exception) { "unknown" }
             }
-            SettingsInfo("版本", versionName)
-            SettingsInfo("设备ID", syncManager.deviceId.take(24) + "...")
+            SettingsInfo(stringResource(R.string.settings_version), versionName)
+            SettingsInfo(stringResource(R.string.settings_device_id), syncManager.deviceId.take(24) + "...")
         }
 
         Spacer(modifier = Modifier.height(24.dp))

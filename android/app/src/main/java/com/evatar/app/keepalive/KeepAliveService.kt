@@ -9,6 +9,7 @@ import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import com.evatar.app.EvatarApp
+import com.evatar.app.R
 import com.evatar.app.MainActivity
 import com.evatar.app.network.ApiClient
 import kotlinx.coroutines.*
@@ -41,7 +42,7 @@ class KeepAliveService : LifecycleService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
-        startForeground(NOTIFICATION_ID, buildNotification("保活服务运行中"))
+        startForeground(NOTIFICATION_ID, buildNotification(getString(R.string.keepalive_running)))
 
         try { overlayWindow?.show() } catch (e: Exception) { Log.e(TAG, "Overlay show failed", e) }
 
@@ -53,12 +54,12 @@ class KeepAliveService : LifecycleService() {
                     val connected = apiClient.checkHealth()
                     // Post UI update to main thread
                     withContext(Dispatchers.Main) {
-                        overlayWindow?.updateStatus(if (connected) "已连接" else "未连接")
+                        overlayWindow?.updateStatus(if (connected) getString(R.string.keepalive_connected) else getString(R.string.keepalive_disconnected))
                     }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    withContext(Dispatchers.Main) { overlayWindow?.updateStatus("异常") }
+                    withContext(Dispatchers.Main) { overlayWindow?.updateStatus(getString(R.string.keepalive_error)) }
                 }
                 delay(CHECK_INTERVAL)
             }

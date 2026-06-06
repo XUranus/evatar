@@ -17,10 +17,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.evatar.app.R
 import com.evatar.app.network.ApiClient
 import com.evatar.app.sync.SyncManager
 import com.evatar.app.ui.theme.EvatarColors
@@ -38,14 +40,15 @@ enum class OnboardingStep {
     DONE,
 }
 
-data class SyncTimeOption(val label: String, val days: Int, val description: String)
+data class SyncTimeOption(val labelResId: Int, val days: Int, val descResId: Int)
 
-val SYNC_TIME_OPTIONS = listOf(
-    SyncTimeOption("1 天", 1, "仅同步最近一天的截图"),
-    SyncTimeOption("3 天", 3, "同步最近三天的截图"),
-    SyncTimeOption("7 天", 7, "同步最近一周的截图（推荐）"),
-    SyncTimeOption("30 天", 30, "同步最近一个月的截图"),
-    SyncTimeOption("全部", 0, "同步所有截图（可能需要较长时间）"),
+@Composable
+fun rememberSyncTimeOptions(): List<SyncTimeOption> = listOf(
+    SyncTimeOption(R.string.sync_time_1day_label, 1, R.string.sync_time_1day_desc),
+    SyncTimeOption(R.string.sync_time_3day_label, 3, R.string.sync_time_3day_desc),
+    SyncTimeOption(R.string.sync_time_7day_label, 7, R.string.sync_time_7day_desc),
+    SyncTimeOption(R.string.sync_time_30day_label, 30, R.string.sync_time_30day_desc),
+    SyncTimeOption(R.string.sync_time_all_label, 0, R.string.sync_time_all_desc),
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -55,6 +58,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
     val scope = rememberCoroutineScope()
     val apiClient = remember { ApiClient.getInstance(context) }
     val syncManager = remember { SyncManager(context) }
+    val syncTimeOptions = rememberSyncTimeOptions()
 
     var step by remember { mutableStateOf(OnboardingStep.WELCOME) }
     var serverUrl by remember { mutableStateOf("") }
@@ -72,15 +76,15 @@ fun OnboardingScreen(onComplete: () -> Unit) {
             urlError = null
             val trimmed = url.trim()
             when {
-                trimmed.isEmpty() -> { urlError = "请输入服务端地址" }
+                trimmed.isEmpty() -> { urlError = context.getString(R.string.onboard_error_empty_url) }
                 !trimmed.startsWith("http://") && !trimmed.startsWith("https://") -> {
-                    urlError = "地址必须以 http:// 或 https:// 开头"
+                    urlError = context.getString(R.string.onboard_error_bad_scheme)
                 }
                 else -> {
                     apiClient.setServerUrl(trimmed)
                     val ok = withContext(Dispatchers.IO) { apiClient.checkHealth() }
                     serverConnected = ok
-                    if (!ok) urlError = "无法连接到服务端，请检查地址和网络"
+                    if (!ok) urlError = context.getString(R.string.onboard_error_connection)
                 }
             }
             checking = false
@@ -125,6 +129,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                     onBack = { step = OnboardingStep.WELCOME },
                 )
                 OnboardingStep.SYNC_TIME -> SyncTimeStep(
+                    syncTimeOptions = syncTimeOptions,
                     selectedDays = selectedDays,
                     onSelect = { selectedDays = it },
                     onStart = {
@@ -139,24 +144,24 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                             else System.currentTimeMillis() - selectedDays * 24 * 60 * 60 * 1000L
 
                             // Set sync state on server
-                            syncProgress = "正在准备同步..."
+                            syncProgress = context.getString(R.string.onboard_sync_prepare)
                             val syncState = withContext(Dispatchers.IO) {
                                 apiClient.setSyncSince(syncManager.deviceId, sinceMs)
                             }
 
                             // Run initial sync
-                            syncProgress = "正在同步截图..."
+                            syncProgress = context.getString(R.string.onboard_sync_running)
                             val result = withContext(Dispatchers.IO) {
                                 syncManager.runSync { synced, failed, total ->
                                     syncDone = synced + failed
                                     syncTotal = total
-                                    syncProgress = "已同步 $synced/$total"
+                                    syncProgress = context.getString(R.string.onboard_sync_progress, synced, total)
                                 }
                             }
 
                             syncDone = result.success
                             syncTotal = result.total
-                            syncProgress = "同步完成：${result.success}/${result.total}"
+                            syncProgress = context.getString(R.string.onboard_sync_done, result.success, result.total)
                             delay(1000)
                             step = OnboardingStep.DONE
                         }
@@ -194,10 +199,10 @@ private fun WelcomeStep(onNext: () -> Unit) {
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        Text("欢迎使用 Evatar", style = EvatarTypography.title1, color = MaterialTheme.colorScheme.onBackground)
+        Text(stringResource(R.string.onboard_welcome_title), style = EvatarTypography.title1, color = MaterialTheme.colorScheme.onBackground)
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            "你的智能截图助手\n自动同步截图，AI 分析内容，生成有价值的笔记",
+            stringResource(R.string.onboard_welcome_desc),
             style = EvatarTypography.body,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -210,7 +215,7 @@ private fun WelcomeStep(onNext: () -> Unit) {
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape = RoundedCornerShape(14.dp),
         ) {
-            Text("开始设置", style = EvatarTypography.headline)
+            Text(stringResource(R.string.onboard_start_setup), style = EvatarTypography.headline)
         }
     }
 }
@@ -230,10 +235,10 @@ private fun ServerSetupStep(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.Center,
     ) {
-        Text("连接服务端", style = EvatarTypography.title2, color = MaterialTheme.colorScheme.onBackground)
+        Text(stringResource(R.string.onboard_server_title), style = EvatarTypography.title2, color = MaterialTheme.colorScheme.onBackground)
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            "输入 Evatar 服务端地址。服务端运行在你的电脑或服务器上。",
+            stringResource(R.string.onboard_server_desc),
             style = EvatarTypography.body,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -244,7 +249,7 @@ private fun ServerSetupStep(
             value = serverUrl,
             onValueChange = onUrlChange,
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("服务端地址") },
+            label = { Text(stringResource(R.string.onboard_server_label)) },
             placeholder = { Text("http://192.168.0.107:8421") },
             singleLine = true,
             shape = RoundedCornerShape(12.dp),
@@ -267,7 +272,7 @@ private fun ServerSetupStep(
                 CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                 Spacer(modifier = Modifier.width(8.dp))
             }
-            Text(if (checking) "测试中..." else "测试连接")
+            Text(if (checking) stringResource(R.string.onboard_testing) else stringResource(R.string.onboard_test_connection))
         }
 
         // Connection status
@@ -282,7 +287,7 @@ private fun ServerSetupStep(
             ) {
                 Icon(Icons.Filled.Check, contentDescription = null, tint = EvatarColors.DarkSuccess, modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("连接成功", color = EvatarColors.DarkSuccess, style = EvatarTypography.subheadline)
+                Text(stringResource(R.string.onboard_connection_success), color = EvatarColors.DarkSuccess, style = EvatarTypography.subheadline)
             }
         }
 
@@ -290,7 +295,7 @@ private fun ServerSetupStep(
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = onBack, modifier = Modifier.weight(1f).height(48.dp), shape = RoundedCornerShape(12.dp)) {
-                Text("返回")
+                Text(stringResource(R.string.chat_back))
             }
             Button(
                 onClick = onNext,
@@ -298,7 +303,7 @@ private fun ServerSetupStep(
                 modifier = Modifier.weight(1f).height(48.dp),
                 shape = RoundedCornerShape(12.dp),
             ) {
-                Text("下一步")
+                Text(stringResource(R.string.onboard_next))
             }
         }
     }
@@ -306,6 +311,7 @@ private fun ServerSetupStep(
 
 @Composable
 private fun SyncTimeStep(
+    syncTimeOptions: List<SyncTimeOption>,
     selectedDays: Int,
     onSelect: (Int) -> Unit,
     onStart: () -> Unit,
@@ -315,17 +321,17 @@ private fun SyncTimeStep(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.Center,
     ) {
-        Text("同步范围", style = EvatarTypography.title2, color = MaterialTheme.colorScheme.onBackground)
+        Text(stringResource(R.string.onboard_sync_scope_title), style = EvatarTypography.title2, color = MaterialTheme.colorScheme.onBackground)
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            "选择从多久之前开始同步截图。首次同步会上传所选范围内的所有截图。",
+            stringResource(R.string.onboard_sync_scope_desc),
             style = EvatarTypography.body,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        SYNC_TIME_OPTIONS.forEach { option ->
+        syncTimeOptions.forEach { option ->
             val selected = selectedDays == option.days
             Card(
                 modifier = Modifier
@@ -347,8 +353,8 @@ private fun SyncTimeStep(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(option.label, style = EvatarTypography.headline, color = MaterialTheme.colorScheme.onSurface)
-                        Text(option.description, style = EvatarTypography.caption1, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(option.labelResId), style = EvatarTypography.headline, color = MaterialTheme.colorScheme.onSurface)
+                        Text(stringResource(option.descResId), style = EvatarTypography.caption1, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     if (selected) {
                         Icon(Icons.Filled.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
@@ -361,10 +367,10 @@ private fun SyncTimeStep(
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = onBack, modifier = Modifier.weight(1f).height(48.dp), shape = RoundedCornerShape(12.dp)) {
-                Text("返回")
+                Text(stringResource(R.string.chat_back))
             }
             Button(onClick = onStart, modifier = Modifier.weight(1f).height(48.dp), shape = RoundedCornerShape(12.dp)) {
-                Text("开始同步")
+                Text(stringResource(R.string.onboard_sync_start))
             }
         }
     }
@@ -379,7 +385,7 @@ private fun SyncingStep(progress: String, done: Int, total: Int) {
     ) {
         CircularProgressIndicator(modifier = Modifier.size(48.dp), strokeWidth = 4.dp, color = MaterialTheme.colorScheme.primary)
         Spacer(modifier = Modifier.height(24.dp))
-        Text("正在同步截图...", style = EvatarTypography.title2, color = MaterialTheme.colorScheme.onBackground)
+        Text(stringResource(R.string.onboard_syncing_title), style = EvatarTypography.title2, color = MaterialTheme.colorScheme.onBackground)
         Spacer(modifier = Modifier.height(8.dp))
         Text(progress, style = EvatarTypography.body, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (total > 0) {
@@ -410,10 +416,10 @@ private fun DoneStep(onComplete: () -> Unit) {
         }
 
         Spacer(modifier = Modifier.height(24.dp))
-        Text("设置完成！", style = EvatarTypography.title1, color = MaterialTheme.colorScheme.onBackground)
+        Text(stringResource(R.string.onboard_done_title), style = EvatarTypography.title1, color = MaterialTheme.colorScheme.onBackground)
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            "截图同步已启动，AI 会在后台自动分析你的截图并生成笔记。\n\n你可以在「动态」页面查看分析结果，在「设置」中调整同步选项。",
+            stringResource(R.string.onboard_done_desc),
             style = EvatarTypography.body,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -426,7 +432,7 @@ private fun DoneStep(onComplete: () -> Unit) {
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape = RoundedCornerShape(14.dp),
         ) {
-            Text("开始使用", style = EvatarTypography.headline)
+            Text(stringResource(R.string.onboard_done_btn), style = EvatarTypography.headline)
         }
     }
 }
