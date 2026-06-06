@@ -132,16 +132,20 @@ async def chat(
             "error_type": "llm_not_configured",
         }
 
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
     if not conv:
-        conv = Conversation(id=conversation_id, title=user_message[:50])
+        conv = Conversation(id=conversation_id, title=user_message[:50], updated_at=now)
         db.add(conv)
-        db.flush()
+        db.commit()
+        db.refresh(conv)
+    else:
+        conv.updated_at = now
+        db.commit()
 
     user_msg = ChatMessage(conversation_id=conversation_id, role="user", content=user_message)
     db.add(user_msg)
-    conv.updated_at = datetime.now(timezone.utc)
-    db.flush()
+    db.commit()
 
     history = _build_history(db, conversation_id)
 

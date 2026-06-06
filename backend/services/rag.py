@@ -159,3 +159,20 @@ def _row_to_result(row) -> dict:
         "filename": row[6] or "",
         "timestamp": timestamp,
     }
+
+
+def get_recent_analyses(db: Session, limit: int = 10) -> list[dict]:
+    """Get recent completed analyses, newest first."""
+    rows = db.execute(
+        text("""
+            SELECT a.id, a.summary, a.app_name, a.content_category, a.intent,
+                   a.entities, p.filename, p.original_timestamp
+            FROM analyses a
+            JOIN photos p ON p.id = a.photo_id
+            WHERE a.status = 'done'
+            ORDER BY p.original_timestamp DESC
+            LIMIT :limit
+        """),
+        {"limit": limit}
+    ).fetchall()
+    return [_row_to_result(r) for r in rows]
