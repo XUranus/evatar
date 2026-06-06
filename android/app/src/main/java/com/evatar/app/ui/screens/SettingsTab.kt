@@ -125,12 +125,21 @@ fun SettingsTab(
         SettingsGroup {
             Column(modifier = Modifier.padding(16.dp)) {
                 // Last sync result
-                if (state.lastResult != null) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        MiniStat(stringResource(R.string.stat_synced), state.lastResult!!.success, EvatarColors.DarkSuccess)
-                        MiniStat(stringResource(R.string.stat_errors), state.lastResult!!.failed, EvatarColors.DarkError)
-                        MiniStat(stringResource(R.string.stat_total), state.lastResult!!.total, MaterialTheme.colorScheme.onSurface)
+                if (state.lastSyncMessage != null) {
+                    if (state.lastResult != null && state.lastResult!!.total > 0) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                            MiniStat(stringResource(R.string.stat_synced), state.lastResult!!.success, EvatarColors.DarkSuccess)
+                            MiniStat(stringResource(R.string.stat_errors), state.lastResult!!.failed, EvatarColors.DarkError)
+                            MiniStat(stringResource(R.string.stat_total), state.lastResult!!.total, MaterialTheme.colorScheme.onSurface)
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
+                    Text(
+                        state.lastSyncMessage!!,
+                        style = EvatarTypography.subheadline,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+                    )
                     Spacer(modifier = Modifier.height(12.dp))
                 }
 

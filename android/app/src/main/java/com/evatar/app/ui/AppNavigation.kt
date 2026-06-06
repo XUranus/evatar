@@ -2,6 +2,7 @@ package com.evatar.app.ui
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -18,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -108,10 +110,21 @@ fun AppNavigation(
             }
         }
     ) { padding ->
+        // Helper to switch to the previous tab (for swipe-right gesture)
+        val switchToPrevTab: () -> Unit = {
+            val tabs = Tab.entries
+            val currentIndex = tabs.indexOf(selectedTab)
+            val prevIndex = (currentIndex - 1 + tabs.size) % tabs.size
+            selectedTab = tabs[prevIndex]
+        }
+
         Box(modifier = Modifier.padding(padding)) {
             when (selectedTab) {
                 Tab.DYNAMIC -> DynamicTab()
-                Tab.CHAT -> ChatTab(onChatActiveChange = { chatIsFullScreen = it })
+                Tab.CHAT -> ChatTab(
+                    onChatActiveChange = { chatIsFullScreen = it },
+                    onSwipeToPrevTab = switchToPrevTab,
+                )
                 Tab.SETTINGS -> SettingsTab(themeMode = themeMode, onThemeChange = onThemeChange)
             }
         }

@@ -17,6 +17,7 @@ data class SettingsUiState(
     val saved: Boolean = false,
     val urlError: String? = null,
     val lastResult: SyncResult? = null,
+    val lastSyncMessage: String? = null,
     val isSyncing: Boolean = false,
     val isKeepAliveRunning: Boolean = false,
 )
@@ -64,7 +65,13 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             _state.value = _state.value.copy(isSyncing = true)
             val result = syncManager.runSync()
-            _state.value = _state.value.copy(lastResult = result, isSyncing = false)
+            val message = when {
+                result.total == 0 -> "✅ 已是最新，无需同步"
+                result.success > 0 && result.failed == 0 -> "✅ 同步完成: ${result.success} 张新截图"
+                result.success > 0 && result.failed > 0 -> "⚠️ 同步完成: ${result.success} 成功, ${result.failed} 失败"
+                else -> "❌ 同步失败: ${result.failed} 张上传失败"
+            }
+            _state.value = _state.value.copy(lastResult = result, lastSyncMessage = message, isSyncing = false)
         }
     }
 

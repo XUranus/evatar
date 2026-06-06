@@ -47,6 +47,7 @@ fun ChatTab(
     modifier: Modifier = Modifier,
     viewModel: ChatViewModel = viewModel(),
     onChatActiveChange: (Boolean) -> Unit = {},
+    onSwipeToPrevTab: () -> Unit = {},
 ) {
     val state by viewModel.state.collectAsState()
     var input by remember { mutableStateOf("") }
@@ -78,6 +79,7 @@ fun ChatTab(
             onNew = { viewModel.startNewConversation() },
             onDelete = { conv -> viewModel.deleteConversation(conv.id) },
             onRefresh = { viewModel.loadConversations() },
+            onSwipeRight = onSwipeToPrevTab,
             modifier = modifier,
         )
     } else {
@@ -110,6 +112,7 @@ private fun ConversationList(
     onNew: () -> Unit,
     onDelete: (UiConversation) -> Unit,
     onRefresh: () -> Unit,
+    onSwipeRight: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var refreshing by remember { mutableStateOf(false) }
@@ -129,7 +132,18 @@ private fun ConversationList(
         },
     )
 
-    Box(modifier = modifier.fillMaxSize().pullRefresh(pullRefreshState)) {
+    Box(modifier = modifier
+        .fillMaxSize()
+        .pullRefresh(pullRefreshState)
+        .pointerInput(Unit) {
+            detectHorizontalDragGestures { _, dragAmount ->
+                // Swipe right to switch to previous tab (Dynamic tab)
+                if (dragAmount > 120f) {
+                    onSwipeRight()
+                }
+            }
+        },
+    ) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Header
             Text(
@@ -287,8 +301,8 @@ private fun ChatView(
             .background(MaterialTheme.colorScheme.background)
             .pointerInput(Unit) {
                 detectHorizontalDragGestures { _, dragAmount ->
-                    // Swipe left to go back
-                    if (dragAmount < -120f) {
+                    // Swipe right to go back to conversation list
+                    if (dragAmount > 120f) {
                         onBack()
                     }
                 }

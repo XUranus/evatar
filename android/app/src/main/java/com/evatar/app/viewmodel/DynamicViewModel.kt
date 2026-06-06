@@ -16,6 +16,7 @@ data class UiDynamic(
 
 data class DynamicUiState(
     val items: List<UiDynamic> = emptyList(),
+    val itemsHash: Int = 0,
     val loading: Boolean = true,
     val serverConnected: Boolean = false,
     val isSyncing: Boolean = false,
@@ -62,7 +63,12 @@ class DynamicViewModel(app: Application) : AndroidViewModel(app) {
             val unreadCounts = list.filter { !it.isRead }
                 .groupBy { it.category }
                 .mapValues { it.value.size }
-            _state.value = _state.value.copy(items = list, loading = false, unreadCounts = unreadCounts)
+            val newHash = list.hashCode()
+            if (newHash != _state.value.itemsHash) {
+                _state.value = _state.value.copy(items = list, itemsHash = newHash, loading = false, unreadCounts = unreadCounts)
+            } else {
+                _state.value = _state.value.copy(loading = false)
+            }
         }
     }
 

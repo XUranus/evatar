@@ -16,6 +16,7 @@ data class UiConversation(val id: String, val title: String, val lastMessage: St
 
 data class ChatUiState(
     val conversations: List<UiConversation> = emptyList(),
+    val conversationsHash: Int = 0,
     val messages: List<UiMessage> = emptyList(),
     val activeConvId: String? = null,
     val sending: Boolean = false,
@@ -43,7 +44,12 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                     lastMessage = obj.optString("last_message", ""), messageCount = obj.optInt("message_count", 0)
                 ))
             }
-            _state.value = _state.value.copy(conversations = list, loading = false)
+            val newHash = list.hashCode()
+            if (newHash != _state.value.conversationsHash) {
+                _state.value = _state.value.copy(conversations = list, conversationsHash = newHash, loading = false)
+            } else {
+                _state.value = _state.value.copy(loading = false)
+            }
         }
     }
 
