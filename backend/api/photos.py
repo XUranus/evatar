@@ -126,6 +126,45 @@ def get_sync_state(device_id: str, db: Session = Depends(get_db)):
     }
 
 
+@router.post("/sync-state")
+def set_sync_since(
+    device_id: str = Form(...),
+    since_ms: int = Form(default=0),
+    device_name: str = Form(default=""),
+    db: Session = Depends(get_db),
+):
+    """Set the sync-start timestamp for a device. Used during onboarding."""
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    if since_ms > 0:
+        since_ts = datetime.fromtimestamp(since_ms / 1000).replace(tzinfo=None)
+    else:
+        since_ts = None  # sync everything
+
+    state = db.query(DeviceSyncState).filter(DeviceSyncState.device_id == device_id).first()
+    if not state:
+        state = DeviceSyncState(
+            device_id=device_id,
+            device_name=device_name or None,
+            last_synced_timestamp=since_ts,
+            last_sync_time=now,
+            total_synced=0,
+        )
+        db.add(state)
+    else:
+        state.last_synced_timestamp = since_ts
+        state.last_sync_time = now
+        if device_name:
+            state.device_name = device_name
+
+    db.commit()
+    return {
+        "device_id": device_id,
+        "last_synced_timestamp": since_ts.isoformat() if since_ts else None,
+        "last_synced_ts_ms": since_ms,
+    }
+
+
 # ── Upload ──
 
 @router.post("/upload")

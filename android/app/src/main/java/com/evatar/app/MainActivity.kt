@@ -16,7 +16,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import com.evatar.app.network.ApiClient
+import com.evatar.app.sync.SyncManager
+import com.evatar.app.sync.SyncService
 import com.evatar.app.ui.AppNavigation
+import com.evatar.app.ui.screens.OnboardingScreen
 import com.evatar.app.ui.theme.EvatarTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -25,26 +29,19 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         const val PREF_NAME = "evatar_prefs"
-        const val KEY_THEME = "theme_mode" // "system", "dark", "light"
+        const val KEY_THEME = "theme_mode"
+        const val KEY_ONBOARDING_DONE = "onboarding_done"
     }
+
+    private var permissionsGranted = false
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        val denied = permissions.filter { !it.value }.keys
-        if (denied.isNotEmpty()) {
-            android.util.Log.w("MainActivity", "Denied permissions: $denied")
-        }
-        // Start sync service and register device only after permissions are handled
-        com.evatar.app.sync.SyncService.start(this)
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val apiClient = com.evatar.app.network.ApiClient.getInstance(this@MainActivity)
-                val syncManager = com.evatar.app.sync.SyncManager(this@MainActivity)
-                apiClient.registerDevice(syncManager.deviceId)
-            } catch (e: Exception) {
-                android.util.Log.w("MainActivity", "Device registration failed: ${e.message}")
-            }
+        permissionsGranted = permissions.values.all { it }
+        // Start services after permissions
+        if (permissionsGranted) {
+            startBackgroundServices()
         }
     }
 
@@ -55,6 +52,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             val prefs = remember { getSharedPreferences(PREF_NAME, MODE_PRIVATE) }
             var themeMode by rememberSaveable { mutableStateOf(prefs.getString(KEY_THEME, "dark") ?: "dark") }
+            var onboardingDone by rememberSaveable {
+                mutableStateOf(prefs.getBoolean(KEY_ONBOARDING_DONE, false))
+            }
 
             val darkTheme = when (themeMode) {
                 "light" -> false
@@ -67,14 +67,37 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    AppNavigation(
-                        themeMode = themeMode,
-                        onThemeChange = { mode ->
-                            themeMode = mode
-                            prefs.edit().putString(KEY_THEME, mode).apply()
-                        }
-                    )
+                    if (!onboardingDone || !ApiClient.getInstance(this).isServerConfigured()) {
+                        OnboardingScreen(
+                            onComplete = {
+                                prefs.edit().putBoolean(KEY_ONBOARDING_DONE, true).apply()
+                                onboardingDone = true
+                                startBackgroundServices()
+                            }
+                        )
+                    } else {
+                        AppNavigation(
+                            themeMode = themeMode,
+                            onThemeChange = { mode ->
+                                themeMode = mode
+                                prefs.edit().putString(KEY_THEME, mode).apply()
+                            }
+                        )
+                    }
                 }
+            }
+        }
+    }
+
+    private fun startBackgroundServices() {
+        SyncService.start(this)
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val apiClient = ApiClient.getInstance(this@MainActivity)
+                val syncManager = SyncManager(this@MainActivity)
+                apiClient.registerDevice(syncManager.deviceId)
+            } catch (e: Exception) {
+                android.util.Log.w("MainActivity", "Device registration failed: ${e.message}")
             }
         }
     }
@@ -93,6 +116,10 @@ class MainActivity : ComponentActivity() {
                 != PackageManager.PERMISSION_GRANTED
             ) permissions.add(Manifest.permission.READ_EXTERNAL_STORAGE)
         }
-        if (permissions.isNotEmpty()) permissionLauncher.launch(permissions.toTypedArray())
+        if (permissions.isNotEmpty()) {
+            permissionLauncher.launch(permissions.toTypedArray())
+        } else {
+            permissionsGranted = true
+        }
     }
 }

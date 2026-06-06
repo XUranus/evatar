@@ -147,6 +147,22 @@ class ApiClient private constructor(private val context: Context) {
         }
     }
 
+    suspend fun setSyncSince(deviceId: String, sinceMs: Long): Boolean = withContext(Dispatchers.IO) {
+        if (!isServerConfigured()) return@withContext false
+        try {
+            val body = MultipartBody.Builder().setType(MultipartBody.FORM)
+                .addFormDataPart("device_id", deviceId)
+                .addFormDataPart("since_ms", sinceMs.toString())
+                .addFormDataPart("device_name", deviceName)
+                .build()
+            val request = Request.Builder().url("${getServerUrl()}/api/photos/sync-state").post(body).build()
+            executeWithRetry(request, false) { it.isSuccessful }
+        } catch (e: Exception) {
+            Log.e(TAG, "setSyncSince error: ${e.message}")
+            false
+        }
+    }
+
     // ── Upload ──
 
     suspend fun uploadPhoto(
