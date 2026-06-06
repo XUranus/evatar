@@ -36,12 +36,21 @@ class SyncManager(context: Context) {
         }"
     }
 
+    /**
+     * Run a sync cycle.
+     * @param sinceMsOverride If provided, use this timestamp instead of querying the server.
+     *        Used during onboarding when the server state may not be set yet.
+     */
     suspend fun runSync(
+        sinceMsOverride: Long? = null,
         onProgress: (synced: Int, failed: Int, total: Int) -> Unit = { _, _, _ -> }
     ): SyncResult = withContext(Dispatchers.IO) {
-        val syncState = apiClient.getSyncState(deviceId)
-        val sinceMs = syncState.lastSyncedTsMs
-        Log.i(TAG, "Server last synced: $sinceMs (total: ${syncState.totalSynced})")
+        val sinceMs = sinceMsOverride ?: run {
+            val syncState = apiClient.getSyncState(deviceId)
+            Log.i(TAG, "Server last synced: ${syncState.lastSyncedTsMs} (total: ${syncState.totalSynced})")
+            syncState.lastSyncedTsMs
+        }
+        Log.i(TAG, "Syncing since: $sinceMs ms")
 
         val newPhotos = scanMediaStoreSince(sinceMs)
         if (newPhotos.isEmpty()) return@withContext SyncResult(0, 0, 0)

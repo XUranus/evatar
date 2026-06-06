@@ -149,10 +149,10 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                                 apiClient.setSyncSince(syncManager.deviceId, sinceMs)
                             }
 
-                            // Run initial sync
+                            // Run initial sync with explicit sinceMs (don't query server)
                             syncProgress = context.getString(R.string.onboard_sync_running)
                             val result = withContext(Dispatchers.IO) {
-                                syncManager.runSync { synced, failed, total ->
+                                syncManager.runSync(sinceMsOverride = sinceMs) { synced, failed, total ->
                                     syncDone = synced + failed
                                     syncTotal = total
                                     syncProgress = context.getString(R.string.onboard_sync_progress, synced, total)
