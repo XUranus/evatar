@@ -82,11 +82,12 @@ async def process_photo(photo_id: int):
         logger.info(f"Photo {photo_id} analyzed: intent={analysis.intent}")
 
     except Exception as e:
-        logger.error(f"Failed to analyze photo {photo_id}: {e}", exc_info=True)
+        error_msg = _format_analysis_error(e)
+        logger.error(f"Failed to analyze photo {photo_id}: {error_msg}", exc_info=True)
         if analysis:
             try:
                 analysis.status = AnalysisStatus.ERROR
-                analysis.error_message = str(e)[:500]
+                analysis.error_message = error_msg[:500]
                 analysis.completed_at = datetime.now(timezone.utc)
                 db.commit()
             except Exception:
@@ -169,3 +170,32 @@ async def _safe_process(photo_id: int):
                 await asyncio.sleep(wait)
             else:
                 logger.error(f"All retries exhausted for photo {photo_id}: {e}")
+
+
+def _format_analysis_error(e: Exception) -> str:
+    """Format analysis errors into readable messages."""
+    import httpx
+
+    if isinstance(e, httpx.HTTPStatusError):
+        status = e.response.status_code
+        try:
+            body = e.response.json()
+            detail = body.get("error", {}).get("message", "") or body.get("detail", "")
+        except Exception:
+            detail = e.response.text[:200]
+
+        if status == 401:
+            return "LLM API Key 无效"
+        elif status == 429:
+            return "LLM API 频率限制"
+        elif status >= 500:
+            return f"LLM 服务错误 (HTTP {status}): {detail}"
+        return f"LLM 错误 (HTTP {status}): {detail}"
+    elif isinstance(e, httpx.ConnectError):
+        return "无法连接 LLM 服务"
+    elif isinstance(e, httpx.TimeoutException):
+        return "LLM 请求超时"
+    elif isinstance(e, (FileNotFoundError, PermissionError)):
+        return f"文件错误: {e}"
+    else:
+        return f"{type(e).__name__}: {str(e)[:300]}"

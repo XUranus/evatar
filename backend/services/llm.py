@@ -91,6 +91,16 @@ def _get_llm_config() -> dict:
     }
 
 
+def check_llm_config() -> dict:
+    """Check if LLM is properly configured. Returns {ok, error_message}."""
+    llm = _get_llm_config()
+    if not llm["api_key"]:
+        return {"ok": False, "error": "LLM API Key 未配置。请在设置页面配置 LLM 服务商和 API Key。"}
+    if not llm["base_url"]:
+        return {"ok": False, "error": "LLM 服务地址未配置。请在设置页面选择一个 LLM 服务商。"}
+    return {"ok": True, "error": None}
+
+
 async def call_llm(
     messages: list[dict],
     tools: list[dict] | None = None,

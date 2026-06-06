@@ -89,16 +89,29 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                     role = "assistant", content = msg.optString("content", ""),
                     toolCalls = if (msg.has("tool_calls") && !msg.isNull("tool_calls")) msg.optString("tool_calls") else null
                 ) else null
+
+                // Check if the response contains an error (e.g., LLM not configured)
+                val errorType = msg?.optString("error_type", "")
+                val hasError = !errorType.isNullOrEmpty()
+
                 _state.value = _state.value.copy(
                     activeConvId = newConvId,
                     messages = _state.value.messages + listOfNotNull(newMsg),
-                    sending = false
+                    sending = false,
+                    lastFailedMessage = if (hasError) text else null,
                 )
-                loadConversations()
+                if (!hasError) loadConversations()
             } else {
+                val errorMsg = when {
+                    result.errorMessage.contains("401") -> "认证失败，请检查 API Key 配置"
+                    result.errorMessage.contains("500") -> "服务端错误，请检查 LLM 配置"
+                    result.errorMessage.contains("timeout", ignoreCase = true) -> "请求超时，请稍后重试"
+                    result.errorMessage.contains("connect", ignoreCase = true) -> "无法连接服务端"
+                    else -> "发送失败: ${result.errorMessage}"
+                }
                 _state.value = _state.value.copy(
                     lastFailedMessage = text, sending = false,
-                    messages = _state.value.messages + UiMessage("assistant", "发送失败: ${result.errorMessage}")
+                    messages = _state.value.messages + UiMessage("assistant", "❌ $errorMsg")
                 )
             }
         }

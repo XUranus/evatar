@@ -54,21 +54,33 @@ export default function ChatPage() {
       const res = await axios.post('/api/chat/send-with-file', formData, { timeout: 180000 });
       const convId = res.data.conversation_id;
       setActiveConvId(convId);
-      setMessages(prev => [...prev, res.data.message as ChatMessage]);
+      const msg = res.data.message;
+      setMessages(prev => [...prev, msg as ChatMessage]);
+      // If the response contains an error type, show it as a warning
+      if (msg.error_type) {
+        setLastError(msg.content);
+        setLastFailedInput(text);
+      }
       setActiveSkill(null);
       getConversations().then(r => setConversations(r.data.conversations));
     } catch (err: unknown) {
       let detail = t('chat.unknown_error', 'Unknown error');
       if (axios.isAxiosError(err)) {
         const status = err.response?.status;
-        const body = err.response?.data?.detail || err.message;
-        detail = `HTTP ${status || 'N/A'}: ${body}`;
+        const body = err.response?.data?.detail || err.response?.data?.message || err.message;
+        if (status === 500) {
+          detail = `服务端错误: ${body}`;
+        } else if (status === 401) {
+          detail = '认证失败，请检查 API Key 配置';
+        } else {
+          detail = `HTTP ${status || 'N/A'}: ${body}`;
+        }
       } else if (err instanceof Error) {
         detail = err.message;
       }
       setLastError(detail);
       setLastFailedInput(text);
-      setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: `Error: ${t('chat.send_failed', 'Send failed')}\n${detail}`, created_at: new Date().toISOString() }]);
+      setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: `❌ ${t('chat.send_failed', 'Send failed')}\n${detail}`, created_at: new Date().toISOString() }]);
     } finally {
       setSending(false);
     }

@@ -121,6 +121,17 @@ async def chat(
     file_info: dict | None = None,
 ) -> dict:
     """Process a user message and return the assistant response."""
+    # Check LLM config first
+    from services.llm import check_llm_config
+    config_check = check_llm_config()
+    if not config_check["ok"]:
+        return {
+            "role": "assistant",
+            "content": f"⚠️ {config_check['error']}",
+            "tool_calls": [],
+            "error_type": "llm_not_configured",
+        }
+
     conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
     if not conv:
         conv = Conversation(id=conversation_id, title=user_message[:50])
@@ -165,7 +176,19 @@ async def chat(
                 logger.warning(f"Failed to load memories: {e}")
 
         full_messages = [{"role": "system", "content": system_content}] + history
-        response = await call_llm(full_messages, tools=TOOLS)
+
+        try:
+            response = await call_llm(full_messages, tools=TOOLS)
+        except Exception as e:
+            error_msg = _format_llm_error(e)
+            logger.error(f"LLM call failed: {error_msg}")
+            return {
+                "role": "assistant",
+                "content": f"⚠️ {error_msg}",
+                "tool_calls": [],
+                "error_type": "llm_error",
+            }
+
         assistant_content = response.get("content", "")
         tool_calls = response.get("tool_calls", [])
 
@@ -281,3 +304,37 @@ async def _extract_memories_async(text: str, conversation_id: str, device_id: st
             logger.warning(f"Background memory extraction failed: {e}")
         finally:
             db.close()
+
+
+def _format_llm_error(e: Exception) -> str:
+    """Format LLM errors into user-friendly messages."""
+    import httpx
+
+    if isinstance(e, httpx.HTTPStatusError):
+        status = e.response.status_code
+        try:
+            body = e.response.json()
+            detail = body.get("error", {}).get("message", "") or body.get("detail", "")
+        except Exception:
+            detail = e.response.text[:200]
+
+        if status == 401:
+            return "LLM API Key 无效或已过期。请在设置页面检查 API Key。"
+        elif status == 403:
+            return "LLM API 访问被拒绝。请检查 API Key 权限。"
+        elif status == 404:
+            return f"LLM 模型未找到。请检查模型名称配置。({detail})"
+        elif status == 429:
+            return "LLM API 请求频率超限，请稍后重试。"
+        elif status >= 500:
+            return f"LLM 服务端错误 (HTTP {status})。请稍后重试。({detail})"
+        else:
+            return f"LLM 请求失败 (HTTP {status}): {detail}"
+    elif isinstance(e, httpx.ConnectError):
+        return "无法连接 LLM 服务。请检查网络和服务地址配置。"
+    elif isinstance(e, httpx.TimeoutException):
+        return "LLM 请求超时。请稍后重试或检查网络连接。"
+    elif isinstance(e, httpx.ConnectTimeout):
+        return "连接 LLM 服务超时。请检查服务地址是否正确。"
+    else:
+        return f"LLM 调用异常: {type(e).__name__}: {str(e)[:200]}"
