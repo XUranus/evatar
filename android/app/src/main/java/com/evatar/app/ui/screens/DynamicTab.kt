@@ -8,6 +8,10 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -21,99 +25,155 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.evatar.app.ui.components.MarkdownText
 import com.evatar.app.ui.theme.EvatarColors
 import com.evatar.app.ui.theme.EvatarTypography
 import com.evatar.app.viewmodel.DynamicViewModel
 import com.evatar.app.viewmodel.UiDynamic
+import kotlinx.coroutines.delay
 
+@OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun DynamicTab(modifier: Modifier = Modifier, viewModel: DynamicViewModel = viewModel()) {
     val state by viewModel.state.collectAsState()
     var expandedId by remember { mutableIntStateOf(-1) }
+    var refreshing by remember { mutableStateOf(false) }
 
-    Column(modifier = modifier.fillMaxSize()) {
-        // Header with connection indicator and sync button
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 16.dp, bottom = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("动态", style = EvatarTypography.largeTitle, color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.weight(1f))
-
-            // Connection dot
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .clip(CircleShape)
-                    .background(if (state.serverConnected) EvatarColors.DarkSuccess else EvatarColors.DarkError)
-            )
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            // Sync button
-            IconButton(
-                onClick = { viewModel.triggerSync() },
-                enabled = state.serverConnected && !state.isSyncing,
-                modifier = Modifier.size(36.dp),
-            ) {
-                if (state.isSyncing) {
-                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                } else {
-                    Icon(Icons.Outlined.Refresh, contentDescription = "同步", modifier = Modifier.size(20.dp))
-                }
-            }
+    // Periodic auto-refresh every 60 seconds
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(60_000L)
+            viewModel.loadDynamics()
+            viewModel.checkConnection()
         }
+    }
 
-        // Filter chips
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.padding(vertical = 8.dp),
-        ) {
-            val filters = listOf("" to "全部", "insight" to "💡 洞察", "reminder" to "⏰ 提醒", "report" to "📊 报告", "note" to "📝 笔记")
-            items(filters) { (key, label) ->
-                FilterChip(
-                    selected = state.filter == key,
-                    onClick = { viewModel.setFilter(key) },
-                    label = { Text(label, style = EvatarTypography.subheadline) },
-                    shape = RoundedCornerShape(20.dp),
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                        selectedLabelColor = MaterialTheme.colorScheme.primary,
-                    ),
+    val pullRefreshState = rememberPullRefreshState(
+        refreshing = refreshing,
+        onRefresh = {
+            refreshing = true
+            viewModel.loadDynamics()
+            viewModel.checkConnection()
+        },
+    )
+
+    // Reset refreshing when loading completes
+    LaunchedEffect(state.loading) {
+        if (!state.loading) {
+            refreshing = false
+        }
+    }
+
+    Box(modifier = modifier.fillMaxSize().pullRefresh(pullRefreshState)) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Header with connection indicator and sync button
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 16.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("动态", style = EvatarTypography.largeTitle, color = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.weight(1f))
+
+                // Connection dot
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(if (state.serverConnected) EvatarColors.DarkSuccess else EvatarColors.DarkError)
                 )
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                // Sync button
+                IconButton(
+                    onClick = { viewModel.triggerSync() },
+                    enabled = state.serverConnected && !state.isSyncing,
+                    modifier = Modifier.size(36.dp),
+                ) {
+                    if (state.isSyncing) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    } else {
+                        Icon(Icons.Outlined.Refresh, contentDescription = "同步", modifier = Modifier.size(20.dp))
+                    }
+                }
+            }
+
+            // Filter chips with unread badges
+            val unreadCounts = state.unreadCounts
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(vertical = 8.dp),
+            ) {
+                val filters = listOf("" to "全部", "insight" to "💡 洞察", "reminder" to "⏰ 提醒", "report" to "📊 报告", "note" to "📝 笔记")
+                items(filters) { (key, label) ->
+                    val count = if (key.isNotEmpty()) unreadCounts[key] ?: 0
+                                else unreadCounts.values.sum()
+                    BadgedBox(
+                        badge = {
+                            if (count > 0) {
+                                Badge(
+                                    containerColor = MaterialTheme.colorScheme.error,
+                                    contentColor = Color.White,
+                                ) {
+                                    Text(if (count > 99) "99+" else count.toString(),
+                                        fontSize = 10.sp)
+                                }
+                            }
+                        }
+                    ) {
+                        FilterChip(
+                            selected = state.filter == key,
+                            onClick = { viewModel.setFilter(key) },
+                            label = { Text(label, style = EvatarTypography.subheadline) },
+                            shape = RoundedCornerShape(20.dp),
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                selectedLabelColor = MaterialTheme.colorScheme.primary,
+                            ),
+                        )
+                    }
+                }
+            }
+
+            if (state.loading && !refreshing) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(modifier = Modifier.size(32.dp), strokeWidth = 2.dp)
+                }
+            } else if (state.items.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Outlined.Article, contentDescription = null,
+                            modifier = Modifier.size(56.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text("暂无动态", style = EvatarTypography.headline, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("后台会定期分析截图和聊天生成笔记", style = EvatarTypography.subheadline, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(state.items, key = { it.id }) { item ->
+                        DynamicCard(
+                            item = item,
+                            expanded = expandedId == item.id,
+                            onToggle = { expandedId = if (expandedId == item.id) -1 else item.id },
+                        )
+                    }
+                }
             }
         }
 
-        if (state.loading) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(modifier = Modifier.size(32.dp), strokeWidth = 2.dp)
-            }
-        } else if (state.items.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Outlined.Article, contentDescription = null,
-                        modifier = Modifier.size(56.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text("暂无动态", style = EvatarTypography.headline, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("后台会定期分析截图和聊天生成笔记", style = EvatarTypography.subheadline, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(state.items, key = { it.id }) { item ->
-                    DynamicCard(
-                        item = item,
-                        expanded = expandedId == item.id,
-                        onToggle = { expandedId = if (expandedId == item.id) -1 else item.id },
-                    )
-                }
-            }
-        }
+        // Pull-to-refresh indicator
+        PullRefreshIndicator(
+            refreshing = refreshing,
+            state = pullRefreshState,
+            modifier = Modifier.align(Alignment.TopCenter),
+            contentColor = MaterialTheme.colorScheme.primary,
+        )
     }
 }
 
@@ -156,7 +216,7 @@ private fun DynamicCard(item: UiDynamic, expanded: Boolean, onToggle: () -> Unit
                 Spacer(modifier = Modifier.height(12.dp))
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                 Spacer(modifier = Modifier.height(12.dp))
-                Text(item.content, style = EvatarTypography.body, lineHeight = 24.sp)
+                MarkdownText(text = item.content)
             }
 
             Spacer(modifier = Modifier.height(8.dp))

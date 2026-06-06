@@ -2,6 +2,7 @@ package com.evatar.app
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -24,6 +25,7 @@ import com.evatar.app.ui.screens.OnboardingScreen
 import com.evatar.app.ui.theme.EvatarTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 class MainActivity : ComponentActivity() {
 
@@ -31,6 +33,7 @@ class MainActivity : ComponentActivity() {
         const val PREF_NAME = "evatar_prefs"
         const val KEY_THEME = "theme_mode"
         const val KEY_ONBOARDING_DONE = "onboarding_done"
+        const val KEY_LANGUAGE = "language_mode"
     }
 
     private var permissionsGranted = false
@@ -48,6 +51,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestPermissions()
+        applyLanguagePreference()
 
         setContent {
             val prefs = remember { getSharedPreferences(PREF_NAME, MODE_PRIVATE) }
@@ -99,6 +103,18 @@ class MainActivity : ComponentActivity() {
             } catch (e: Exception) {
                 android.util.Log.w("MainActivity", "Device registration failed: ${e.message}")
             }
+        }
+    }
+
+    private fun applyLanguagePreference() {
+        val langMode = getSharedPreferences(PREF_NAME, MODE_PRIVATE).getString(KEY_LANGUAGE, "system") ?: "system"
+        if (langMode == "zh" || langMode == "en") {
+            val locale = Locale(langMode)
+            Locale.setDefault(locale)
+            val config = Configuration(resources.configuration)
+            config.setLocale(locale)
+            @Suppress("DEPRECATION")
+            resources.updateConfiguration(config, resources.displayMetrics)
         }
     }
 

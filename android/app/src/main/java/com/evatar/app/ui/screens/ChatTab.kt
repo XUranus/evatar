@@ -9,6 +9,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Send
@@ -31,12 +35,23 @@ import com.evatar.app.ui.components.MarkdownText
 import com.evatar.app.viewmodel.ChatViewModel
 import com.evatar.app.viewmodel.UiConversation
 import com.evatar.app.viewmodel.UiMessage
+import kotlinx.coroutines.delay
 
 @Composable
 fun ChatTab(modifier: Modifier = Modifier, viewModel: ChatViewModel = viewModel()) {
     val state by viewModel.state.collectAsState()
     var input by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
+
+    // Periodic auto-refresh conversation list every 30 seconds (when viewing list)
+    LaunchedEffect(state.activeConvId) {
+        if (state.activeConvId == null) {
+            while (true) {
+                delay(30_000L)
+                viewModel.loadConversations()
+            }
+        }
+    }
 
     LaunchedEffect(state.messages.size) { if (state.messages.isNotEmpty()) listState.animateScrollToItem(state.messages.size - 1) }
 
@@ -48,6 +63,7 @@ fun ChatTab(modifier: Modifier = Modifier, viewModel: ChatViewModel = viewModel(
             onSelect = { viewModel.selectConversation(it.id) },
             onNew = { viewModel.startNewConversation() },
             onDelete = { conv -> viewModel.deleteConversation(conv.id) },
+            onRefresh = { viewModel.loadConversations() },
             modifier = modifier,
         )
     } else {
@@ -71,7 +87,7 @@ fun ChatTab(modifier: Modifier = Modifier, viewModel: ChatViewModel = viewModel(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
 private fun ConversationList(
     conversations: List<UiConversation>,
@@ -79,53 +95,81 @@ private fun ConversationList(
     onSelect: (UiConversation) -> Unit,
     onNew: () -> Unit,
     onDelete: (UiConversation) -> Unit,
+    onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.fillMaxSize()) {
-        // Header
-        Text(
-            "AI 助手",
-            style = EvatarTypography.largeTitle,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 8.dp)
-        )
+    var refreshing by remember { mutableStateOf(false) }
 
-        if (loading) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(modifier = Modifier.size(32.dp), strokeWidth = 2.dp)
-            }
-        } else if (conversations.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("💬", fontSize = 48.sp)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text("暂无对话", style = EvatarTypography.headline, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("点击右上角 + 开始新对话", style = EvatarTypography.subheadline, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        } else {
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                items(conversations, key = { it.id }) { conv ->
-                    ConversationRow(
-                        conversation = conv,
-                        onClick = { onSelect(conv) },
-                        onDelete = { onDelete(conv) },
-                    )
-                }
-            }
+    // Reset refreshing when loading completes
+    LaunchedEffect(loading) {
+        if (!loading) {
+            refreshing = false
         }
     }
 
-    // FAB
-    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.BottomEnd) {
-        FloatingActionButton(
-            onClick = onNew,
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = Color.White,
-            shape = CircleShape,
-            modifier = Modifier.padding(20.dp).size(56.dp),
-        ) {
-            Icon(Icons.Filled.Add, contentDescription = "新对话", modifier = Modifier.size(24.dp))
+    val pullRefreshState = rememberPullRefreshState(
+        refreshing = refreshing,
+        onRefresh = {
+            refreshing = true
+            onRefresh()
+        },
+    )
+
+    Box(modifier = modifier.fillMaxSize().pullRefresh(pullRefreshState)) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Header
+            Text(
+                "AI 助手",
+                style = EvatarTypography.largeTitle,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 8.dp)
+            )
+
+            if (loading && !refreshing) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(modifier = Modifier.size(32.dp), strokeWidth = 2.dp)
+                }
+            } else if (conversations.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("💬", fontSize = 48.sp)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text("暂无对话", style = EvatarTypography.headline, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("点击右上角 + 开始新对话", style = EvatarTypography.subheadline, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            } else {
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    items(conversations, key = { it.id }) { conv ->
+                        ConversationRow(
+                            conversation = conv,
+                            onClick = { onSelect(conv) },
+                            onDelete = { onDelete(conv) },
+                        )
+                    }
+                }
+            }
+        }
+
+        // Pull-to-refresh indicator
+        PullRefreshIndicator(
+            refreshing = refreshing,
+            state = pullRefreshState,
+            modifier = Modifier.align(Alignment.TopCenter),
+            contentColor = MaterialTheme.colorScheme.primary,
+        )
+
+        // FAB
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomEnd) {
+            FloatingActionButton(
+                onClick = onNew,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = Color.White,
+                shape = CircleShape,
+                modifier = Modifier.padding(20.dp).size(56.dp),
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = "新对话", modifier = Modifier.size(24.dp))
+            }
         }
     }
 }

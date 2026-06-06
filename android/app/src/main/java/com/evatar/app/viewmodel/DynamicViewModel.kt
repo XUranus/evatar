@@ -20,6 +20,8 @@ data class DynamicUiState(
     val serverConnected: Boolean = false,
     val isSyncing: Boolean = false,
     val filter: String = "",
+    /** Unread count per category key ("insight", "reminder", "report", "note") */
+    val unreadCounts: Map<String, Int> = emptyMap(),
 )
 
 class DynamicViewModel(app: Application) : AndroidViewModel(app) {
@@ -57,7 +59,10 @@ class DynamicViewModel(app: Application) : AndroidViewModel(app) {
                     createdAt = obj.optString("created_at", ""),
                 ))
             }
-            _state.value = _state.value.copy(items = list, loading = false)
+            val unreadCounts = list.filter { !it.isRead }
+                .groupBy { it.category }
+                .mapValues { it.value.size }
+            _state.value = _state.value.copy(items = list, loading = false, unreadCounts = unreadCounts)
         }
     }
 
