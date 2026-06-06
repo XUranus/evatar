@@ -16,6 +16,7 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 
 class SyncManager(context: Context) {
@@ -64,19 +65,45 @@ class SyncManager(context: Context) {
             }.awaitAll()
         }
 
+        Log.i(TAG, "Sync complete: ${successCount.get()} synced, ${failCount.get()} failed, $total total")
         SyncResult(successCount.get(), failCount.get(), total)
     }
 
     private suspend fun uploadOne(photo: MediaStorePhoto): Boolean {
+        // On API 29+, filePath is a content:// URI which java.io.File cannot open.
+        // Copy to a temp file first so that ApiClient can read it as a regular file.
+        val uploadPath = if (photo.filePath.startsWith("content://")) {
+            try {
+                val tmpFile = File(appContext.cacheDir, "upload_${photo.id}_${photo.displayName}")
+                appContext.contentResolver.openInputStream(android.net.Uri.parse(photo.filePath))?.use { input ->
+                    tmpFile.outputStream().use { output -> input.copyTo(output) }
+                } ?: throw Exception("openInputStream returned null for ${photo.filePath}")
+                tmpFile.absolutePath
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to copy content URI to temp file: ${photo.displayName}: ${e.message}")
+                return false
+            }
+        } else {
+            photo.filePath
+        }
+
         return try {
             val result = apiClient.uploadPhoto(
-                filePath = photo.filePath, deviceId = deviceId,
+                filePath = uploadPath, deviceId = deviceId,
                 localMediaStoreId = photo.id, displayName = photo.displayName,
                 timestamp = photo.timestamp, mimeType = photo.mimeType,
             )
+            // Clean up temp file if we created one
+            if (uploadPath != photo.filePath) {
+                try { File(uploadPath).delete() } catch (_: Exception) {}
+            }
             result.isSuccess
         } catch (e: Exception) {
-            Log.e(TAG, "Upload failed: ${photo.displayName}: ${e.message}")
+            Log.e(TAG, "Upload failed: ${photo.displayName}: ${e.javaClass.simpleName}: ${e.message}")
+            // Clean up temp file on error too
+            if (uploadPath != photo.filePath) {
+                try { File(uploadPath).delete() } catch (_: Exception) {}
+            }
             false
         }
     }

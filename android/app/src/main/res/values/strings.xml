@@ -63,4 +63,11 @@
     <string name="setting_theme_dark">深色模式</string>
     <string name="setting_theme_light">浅色模式</string>
     <string name="setting_theme_system">跟随系统</string>
+
+    <!-- Language -->
+    <string name="setting_language">语言</string>
+    <string name="setting_language_zh">中文</string>
+    <string name="setting_language_en">English</string>
+    <string name="setting_language_system">跟随系统</string>
+    <string name="setting_language_restart_hint">语言设置已保存，请重启应用以生效</string>
 </resources>

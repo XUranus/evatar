@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.evatar.app.ui.theme.EvatarColors
 import com.evatar.app.ui.theme.EvatarTypography
+import com.evatar.app.ui.components.MarkdownText
 import com.evatar.app.viewmodel.ChatViewModel
 import com.evatar.app.viewmodel.UiConversation
 import com.evatar.app.viewmodel.UiMessage
@@ -356,12 +357,20 @@ private fun ChatBubble(msg: UiMessage) {
                 .background(bubbleColor, shape)
                 .padding(horizontal = 14.dp, vertical = 10.dp),
         ) {
-            Text(
-                text = msg.content,
-                style = EvatarTypography.body,
-                color = textColor,
-                lineHeight = 22.sp,
-            )
+            if (isUser) {
+                Text(
+                    text = msg.content,
+                    style = EvatarTypography.body,
+                    color = textColor,
+                    lineHeight = 22.sp,
+                )
+            } else {
+                MarkdownText(
+                    text = msg.content,
+                    color = textColor,
+                    baseStyle = EvatarTypography.body,
+                )
+            }
         }
     }
 }

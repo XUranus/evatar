@@ -1,9 +1,11 @@
 package com.evatar.app.ui.screens
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -42,6 +44,13 @@ fun SettingsTab(
     val context = LocalContext.current
     val state by viewModel.state.collectAsState()
     val syncManager = remember { SyncManager(context) }
+
+    // Language preference
+    val PREF_NAME = "evatar_prefs"
+    val KEY_LANGUAGE = "language_mode"
+    var languageMode by remember {
+        mutableStateOf(context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE).getString(KEY_LANGUAGE, "system") ?: "system")
+    }
 
     val overlayLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
@@ -219,6 +228,30 @@ fun SettingsTab(
                         context.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                             Uri.parse("package:${context.packageName}")))
                     }
+                },
+            )
+            SettingsRow(
+                icon = Icons.Outlined.Language,
+                label = stringResource(R.string.setting_language),
+                subtitle = when (languageMode) {
+                    "zh" -> stringResource(R.string.setting_language_zh)
+                    "en" -> stringResource(R.string.setting_language_en)
+                    else -> stringResource(R.string.setting_language_system)
+                },
+                onClick = {
+                    val next = when (languageMode) {
+                        "system" -> "zh"
+                        "zh" -> "en"
+                        else -> "system"
+                    }
+                    languageMode = next
+                    context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+                        .edit().putString(KEY_LANGUAGE, next).apply()
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.setting_language_restart_hint),
+                        Toast.LENGTH_LONG
+                    ).show()
                 },
             )
         }

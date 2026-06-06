@@ -63,4 +63,11 @@
     <string name="setting_theme_dark">Dark Mode</string>
     <string name="setting_theme_light">Light Mode</string>
     <string name="setting_theme_system">System Default</string>
+
+    <!-- Language -->
+    <string name="setting_language">Language</string>
+    <string name="setting_language_zh">Chinese</string>
+    <string name="setting_language_en">English</string>
+    <string name="setting_language_system">System Default</string>
+    <string name="setting_language_restart_hint">Language preference saved. Please restart the app to apply.</string>
 </resources>
