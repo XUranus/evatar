@@ -179,7 +179,7 @@ export default function App() {
         }}
       >
         <ErrorBoundary>
-          <div className="animate-fade-up" key={page}>
+          <div className="animate-fade-up">
             {page === 'dashboard' && <Dashboard />}
             {page === 'photos' && <Photos />}
             {page === 'chat' && <ChatPage />}

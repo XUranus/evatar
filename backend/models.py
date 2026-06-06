@@ -157,12 +157,18 @@ class MCPServer(Base):
 
 
 class LLMConfig(Base):
+    """LLM configuration stored in DB.
+
+    NOTE: api_key is stored in plaintext. This is a known limitation.
+    For production use, consider encrypting at rest using Fernet (see services/encryption.py)
+    or a secrets manager. The key is never exposed in API responses (only api_key_set flag).
+    """
     __tablename__ = "llm_config"
 
     id = Column(Integer, primary_key=True, default=1)
     provider = Column(String(64), default="mimo")
     base_url = Column(String(512), default="https://token-plan-cn.xiaomimimo.com/v1")
-    api_key = Column(String(512), default="")
+    api_key = Column(String(512), default="")  # Known limitation: stored in plaintext
     model = Column(String(128), default="mimo-v2.5")
     max_context_tokens = Column(Integer, default=1048576)
     temperature = Column(Float, default=0.1)

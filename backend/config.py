@@ -12,7 +12,7 @@ class Settings(BaseSettings):
 
     # Auth
     api_key: str = ""  # Set via EVATAR_API_KEY env var; empty = no auth (dev only)
-    dev_mode: bool = True  # Set EVATAR_DEV_MODE=false for production
+    dev_mode: bool = False  # Set EVATAR_DEV_MODE=true for local development
 
     # Storage
     data_dir: Path = BASE_DIR / "data"

@@ -61,11 +61,15 @@ def list_dynamics(
     if cursor > 0:
         cursor_item = db.query(Dynamic).filter(Dynamic.id == cursor).first()
         if cursor_item:
-            query = query.filter(
-                (Dynamic.is_pinned == True) |
-                (Dynamic.created_at < cursor_item.created_at) if not cursor_item.is_pinned
-                else (Dynamic.created_at <= cursor_item.created_at)
-            )
+            if cursor_item.is_pinned:
+                query = query.filter(
+                    (Dynamic.is_pinned == True) | (Dynamic.created_at < cursor_item.created_at)
+                )
+            else:
+                query = query.filter(
+                    (Dynamic.is_pinned == True) |
+                    ((Dynamic.is_pinned == False) & (Dynamic.created_at < cursor_item.created_at))
+                )
 
     # Order: pinned first, then by created_at desc
     query = query.order_by(desc(Dynamic.is_pinned), desc(Dynamic.created_at))

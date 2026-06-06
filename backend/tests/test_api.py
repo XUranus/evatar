@@ -219,8 +219,8 @@ async def test_dynamics_empty(client):
     resp = await client.get("/api/dynamics")
     assert resp.status_code == 200
     body = resp.json()
-    assert body["total"] == 0
     assert body["items"] == []
+    assert body["has_more"] is False
 
 
 # ---------------------------------------------------------------------------

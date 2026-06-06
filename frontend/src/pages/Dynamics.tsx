@@ -32,7 +32,16 @@ export default function DynamicsPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [nextCursor, setNextCursor] = useState<number>(0);
   const [searchQuery, setSearchQuery] = useState('');
+  const [error, setError] = useState<string | null>(null);
   const observerRef = useRef<HTMLDivElement>(null);
+
+  // Refs to avoid stale closures in IntersectionObserver callback
+  const hasMoreRef = useRef(hasMore);
+  hasMoreRef.current = hasMore;
+  const loadingMoreRef = useRef(loadingMore);
+  loadingMoreRef.current = loadingMore;
+  const nextCursorRef = useRef(nextCursor);
+  nextCursorRef.current = nextCursor;
 
   // Load first page
   const load = () => {
@@ -43,19 +52,22 @@ export default function DynamicsPage() {
       setItems(r.data.items || []);
       setNextCursor(r.data.next_cursor || 0);
       setHasMore(r.data.has_more || false);
-    }).catch(() => {});
+      setError(null);
+    }).catch((err) => {
+      setError(err?.response?.data?.detail || 'Failed to load dynamics');
+    });
   };
 
   useEffect(() => { load(); }, [filter]);
 
   // Infinite scroll observer
   useEffect(() => {
-    if (!observerRef.current || !hasMore || loadingMore) return;
+    if (!observerRef.current) return;
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loadingMore && nextCursor) {
+        if (entries[0].isIntersecting && hasMoreRef.current && !loadingMoreRef.current && nextCursorRef.current) {
           setLoadingMore(true);
-          const params: Record<string, string | number> = { limit: 30, cursor: nextCursor };
+          const params: Record<string, string | number> = { limit: 30, cursor: nextCursorRef.current };
           if (filter) params.category = filter;
           axios.get('/api/dynamics', { params }).then(r => {
             const newItems: DynamicItem[] = r.data.items || [];
@@ -73,7 +85,7 @@ export default function DynamicsPage() {
     );
     observer.observe(observerRef.current);
     return () => observer.disconnect();
-  }, [hasMore, loadingMore, nextCursor, filter]);
+  }, [filter]);
 
   const handleTrigger = async () => {
     setTriggering(true);
@@ -125,6 +137,13 @@ export default function DynamicsPage() {
           </button>
         </div>
       </div>
+
+      {/* Error message */}
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-4 py-3 rounded-xl text-sm">
+          {error}
+        </div>
+      )}
 
       {/* Search */}
       <input

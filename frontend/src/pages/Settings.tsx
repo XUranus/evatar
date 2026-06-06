@@ -412,9 +412,9 @@ function AdvancedSettings() {
       <Card>
         <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3">{t('settings.data_management', 'Data Management')}</h2>
         <div className="space-y-2">
-          <button className="w-full text-left px-4 py-2 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"><Trash2 size={14} /> {t('settings.clear_analysis_cache', 'Clear analysis cache')}</button>
-          <button className="w-full text-left px-4 py-2 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm hover:bg-gray-100 dark:hover:bg-gray-700">{t('settings.export_all_data', 'Export all data')}</button>
-          <button className="w-full text-left px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm hover:bg-red-100 dark:hover:bg-red-900/40">{t('settings.reset_database', 'Reset database')}</button>
+          <button disabled title="Coming soon" className="w-full text-left px-4 py-2 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 opacity-50 cursor-not-allowed"><Trash2 size={14} /> {t('settings.clear_analysis_cache', 'Clear analysis cache')} <span className="text-xs text-gray-400 ml-auto">({t('settings.coming_soon', 'Coming soon')})</span></button>
+          <button disabled title="Coming soon" className="w-full text-left px-4 py-2 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm hover:bg-gray-100 dark:hover:bg-gray-700 opacity-50 cursor-not-allowed">{t('settings.export_all_data', 'Export all data')} <span className="text-xs text-gray-400 ml-auto">({t('settings.coming_soon', 'Coming soon')})</span></button>
+          <button disabled title="Coming soon" className="w-full text-left px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm hover:bg-red-100 dark:hover:bg-red-900/40 opacity-50 cursor-not-allowed">{t('settings.reset_database', 'Reset database')} <span className="text-xs text-gray-400 ml-auto">({t('settings.coming_soon', 'Coming soon')})</span></button>
         </div>
       </Card>
     </div>

@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from fastapi import APIRouter, Depends, File, UploadFile, Form, HTTPException, Query
@@ -8,6 +9,8 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc, case
 from sqlalchemy.exc import IntegrityError
 import os
+
+_DEVICE_ID_RE = re.compile(r'^[a-zA-Z0-9_.\-]{1,256}$')
 
 logger = logging.getLogger("evatar.photos")
 
@@ -19,6 +22,12 @@ from services.pipeline import enqueue_analysis
 router = APIRouter(prefix="/api/photos", tags=["photos"])
 
 ALLOWED_MIMES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+
+
+def _validate_device_id(device_id: str):
+    """Validate device_id format: alphanumeric + underscore/dash/dot, max 256 chars."""
+    if device_id and not _DEVICE_ID_RE.match(device_id):
+        raise HTTPException(status_code=400, detail="device_id must be 1-256 chars, alphanumeric with underscores/dashes/dots only")
 
 
 # ── Helpers ──
@@ -179,6 +188,7 @@ async def upload_photo(
     db: Session = Depends(get_db),
 ):
     """Upload a single photo. Max file size: 50MB. File is read into memory."""
+    _validate_device_id(device_id)
     file_bytes = await file.read()
     if not file_bytes:
         raise HTTPException(status_code=400, detail="Empty file")
@@ -201,6 +211,7 @@ async def upload_batch(
     mime_types: str = Form(default=""),
     db: Session = Depends(get_db),
 ):
+    _validate_device_id(device_id)
     if len(files) > 50:
         raise HTTPException(status_code=400, detail="Max 50 files per batch")
 

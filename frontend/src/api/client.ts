@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const api = axios.create({
   baseURL: '/api',
-  timeout: 30000,
+  timeout: 60000,
 });
 
 // ── Types ──
@@ -132,7 +132,7 @@ export const getLLMConfig = () => api.get<LLMConfig>('/config/llm');
 export const updateLLMConfig = (config: Partial<LLMConfig>) => api.put('/config/llm', config);
 export const getLLMPresets = () => api.get<{ presets: Record<string, LLMPreset> }>('/config/llm/presets');
 export const applyLLMPreset = (name: string, apiKey: string) =>
-  api.post(`/config/llm/presets/${name}/apply`, null, { params: { api_key: apiKey } });
+  api.post(`/config/llm/presets/${name}/apply`, { api_key: apiKey });
 
 // ── Skills ──
 

@@ -1,4 +1,7 @@
+import hmac
 import logging
+import time
+from collections import defaultdict
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, HTTPException
@@ -90,13 +93,28 @@ app.add_middleware(
 
 EXEMPT_PATHS = {"/", "/api/health"}
 
+_RATE_LIMITED_PATHS = {"/api/chat/send", "/api/chat/send-with-file", "/api/dynamics/trigger"}
+_rate_limits: dict[str, list[float]] = defaultdict(list)
+
+
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    if request.url.path in _RATE_LIMITED_PATHS:
+        client_ip = request.client.host if request.client else "unknown"
+        now = time.time()
+        _rate_limits[client_ip] = [t for t in _rate_limits[client_ip] if now - t < 60]
+        if len(_rate_limits[client_ip]) >= 10:
+            raise HTTPException(status_code=429, detail="Rate limit exceeded (10 requests per minute)")
+        _rate_limits[client_ip].append(now)
+    return await call_next(request)
+
 
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
     if settings.api_key and request.url.path not in EXEMPT_PATHS:
         auth = request.headers.get("Authorization", "")
         key_from_header = auth.removeprefix("Bearer ").strip() if auth.startswith("Bearer ") else ""
-        if key_from_header != settings.api_key:
+        if not hmac.compare_digest(key_from_header, settings.api_key):
             raise HTTPException(status_code=401, detail="Invalid or missing API key")
     return await call_next(request)
 

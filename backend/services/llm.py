@@ -3,6 +3,7 @@
 import base64
 import json
 import logging
+import time
 
 import httpx
 
@@ -27,6 +28,18 @@ async def close_client():
     if _client is not None and not _client.is_closed:
         await _client.aclose()
         _client = None
+
+
+# Module-level cache for LLM config to avoid a DB session on every call
+_llm_config_cache: dict | None = None
+_llm_config_cache_time: float = 0
+
+
+def invalidate_llm_config_cache():
+    """Invalidate the LLM config cache. Call this when config is updated."""
+    global _llm_config_cache, _llm_config_cache_time
+    _llm_config_cache = None
+    _llm_config_cache_time = 0
 
 
 SYSTEM_PROMPT = """你是一个截图分析助手。分析手机截图内容，返回结构化JSON。
@@ -63,32 +76,43 @@ entities提取要求（尽量多提取）：
 
 
 def _get_llm_config() -> dict:
-    """Read LLM config from DB, falling back to env-based settings."""
+    """Read LLM config from DB with a 60-second TTL cache, falling back to env-based settings."""
+    global _llm_config_cache, _llm_config_cache_time
+    now = time.time()
+    if _llm_config_cache and (now - _llm_config_cache_time) < 60:
+        return _llm_config_cache
+
     try:
         from models import SessionLocal, LLMConfig
         db = SessionLocal()
         try:
             cfg = db.query(LLMConfig).filter(LLMConfig.id == 1).first()
             if cfg and cfg.api_key:
-                return {
+                result = {
                     "base_url": cfg.base_url,
                     "api_key": cfg.api_key,
                     "model": cfg.model,
                     "temperature": cfg.temperature,
                     "max_tokens": settings.llm_max_tokens,
                 }
+                _llm_config_cache = result
+                _llm_config_cache_time = now
+                return result
         finally:
             db.close()
     except Exception as e:
         logger.warning(f"Failed to read LLM config from DB, using env: {e}")
 
-    return {
+    result = {
         "base_url": settings.llm_base_url,
         "api_key": settings.llm_api_key,
         "model": settings.llm_model,
         "temperature": settings.llm_temperature,
         "max_tokens": settings.llm_max_tokens,
     }
+    _llm_config_cache = result
+    _llm_config_cache_time = now
+    return result
 
 
 def check_llm_config() -> dict:

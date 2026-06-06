@@ -1,3 +1,4 @@
+import re
 import uuid
 import base64
 from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Form, Query
@@ -9,6 +10,14 @@ from models import get_db, Conversation, ChatMessage, Skill
 from services.agent import chat
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
+
+_CONV_ID_RE = re.compile(r'^[a-f0-9]{1,64}$')
+
+
+def _validate_conversation_id(conv_id: str):
+    """Validate conversation_id matches hex format, max 64 chars."""
+    if conv_id and not _CONV_ID_RE.match(conv_id):
+        raise HTTPException(status_code=400, detail="conversation_id must be 1-64 lowercase hex characters")
 
 
 class SendMessageRequest(BaseModel):
@@ -38,6 +47,8 @@ def _ensure_conversation(conv_id: str, device_id: str | None, db: Session) -> st
 
 @router.post("/send")
 async def send_message(body: SendMessageRequest, db: Session = Depends(get_db)):
+    if body.conversation_id:
+        _validate_conversation_id(body.conversation_id)
     conv_id = body.conversation_id or uuid.uuid4().hex[:16]
     _ensure_conversation(conv_id, body.device_id, db)
     skill_prompt = await _resolve_skill(body.skill_id, db)
@@ -54,6 +65,8 @@ async def send_message_with_file(
     file: UploadFile = File(default=None),
     db: Session = Depends(get_db),
 ):
+    if conversation_id:
+        _validate_conversation_id(conversation_id)
     conv_id = conversation_id or uuid.uuid4().hex[:16]
     _ensure_conversation(conv_id, device_id or None, db)
     skill_prompt = await _resolve_skill(skill_id or None, db)

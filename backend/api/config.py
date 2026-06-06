@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from config import settings as app_settings
 from models import get_db, LLMConfig
 
 _PRIVATE_HOST = re.compile(
@@ -65,7 +66,14 @@ def get_llm_config(db: Session = Depends(get_db)):
 def _validate_base_url(url: str):
     """Reject SSRF-prone URLs. Raises HTTPException if the URL targets a private/loopback address."""
     if not url.startswith("https://"):
-        raise HTTPException(status_code=400, detail="base_url must use https://")
+        # In dev mode, allow http:// for localhost addresses
+        if app_settings.dev_mode and url.startswith("http://"):
+            parsed = urllib.parse.urlparse(url)
+            hostname = parsed.hostname or ""
+            if not (_PRIVATE_HOST.search(hostname) or hostname in ("localhost", "127.0.0.1")):
+                raise HTTPException(status_code=400, detail="base_url must use https:// (except localhost in dev mode)")
+        else:
+            raise HTTPException(status_code=400, detail="base_url must use https://")
 
     parsed = urllib.parse.urlparse(url)
     hostname = parsed.hostname or ""
@@ -125,6 +133,8 @@ def update_llm_config(body: LLMConfigUpdate, db: Session = Depends(get_db)):
         setattr(cfg, field, value)
     cfg.updated_at = datetime.now(timezone.utc)
     db.commit()
+    from services.llm import invalidate_llm_config_cache
+    invalidate_llm_config_cache()
     return {"message": "Updated", "provider": cfg.provider}
 
 
@@ -152,4 +162,6 @@ def apply_preset(name: str, body: PresetApplyRequest = PresetApplyRequest(), db:
         cfg.api_key = body.api_key
     cfg.updated_at = datetime.now(timezone.utc)
     db.commit()
+    from services.llm import invalidate_llm_config_cache
+    invalidate_llm_config_cache()
     return {"message": f"Applied preset: {name}", "provider": cfg.provider}

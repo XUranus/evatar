@@ -216,9 +216,13 @@ class DynamicViewModel(app: Application) : AndroidViewModel(app) {
                 )
             }
             if (items.isNotEmpty()) {
+                // Note: hasMore defaults to true and nextCursor to 0 from cache.
+                // This is intentional -- the cache is a snapshot for instant display;
+                // the subsequent refresh() call will load the actual cursor state from the server.
                 _state.value = _state.value.copy(
                     items = items,
                     loading = false,
+                    hasMore = true,
                     unreadCounts = computeUnreadCounts(items),
                 )
             }

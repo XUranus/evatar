@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from models import Analysis, AnalysisStatus, Photo, SessionLocal
 from config import settings
-from services.utils import strip_code_fences
+from services.utils import strip_code_fences, format_llm_error as _format_analysis_error
 
 logger = logging.getLogger("evatar.pipeline")
 
@@ -121,7 +121,12 @@ _REASONING_TRIGGER_EVERY = 3  # Trigger reasoning after every N new analyses
 
 def enqueue_analysis(photo_id: int):
     """Schedule async LLM analysis with proper task tracking."""
-    task = asyncio.create_task(_safe_process(photo_id))
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        logger.warning(f"enqueue_analysis({photo_id}) called outside async context; analysis will not run")
+        return
+    task = loop.create_task(_safe_process(photo_id))
     _running_tasks.add(task)
     task.add_done_callback(_on_analysis_done)
 
@@ -172,30 +177,3 @@ async def _safe_process(photo_id: int):
                 logger.error(f"All retries exhausted for photo {photo_id}: {e}")
 
 
-def _format_analysis_error(e: Exception) -> str:
-    """Format analysis errors into readable messages."""
-    import httpx
-
-    if isinstance(e, httpx.HTTPStatusError):
-        status = e.response.status_code
-        try:
-            body = e.response.json()
-            detail = body.get("error", {}).get("message", "") or body.get("detail", "")
-        except Exception:
-            detail = e.response.text[:200]
-
-        if status == 401:
-            return "LLM API Key 无效"
-        elif status == 429:
-            return "LLM API 频率限制"
-        elif status >= 500:
-            return f"LLM 服务错误 (HTTP {status}): {detail}"
-        return f"LLM 错误 (HTTP {status}): {detail}"
-    elif isinstance(e, httpx.ConnectError):
-        return "无法连接 LLM 服务"
-    elif isinstance(e, httpx.TimeoutException):
-        return "LLM 请求超时"
-    elif isinstance(e, (FileNotFoundError, PermissionError)):
-        return f"文件错误: {e}"
-    else:
-        return f"{type(e).__name__}: {str(e)[:300]}"

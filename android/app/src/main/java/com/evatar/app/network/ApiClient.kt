@@ -324,7 +324,10 @@ class ApiClient private constructor(private val context: Context) {
         try {
             val body = JSONObject().apply {
                 put("device_id", deviceId)
-                put("token", deviceId)  // placeholder until FCM is integrated
+                // TODO: Replace deviceId with actual FCM token once Firebase Cloud Messaging is integrated.
+                // Currently uses deviceId as a placeholder which means push notifications won't work.
+                // To fix: add google-services.json, implement FirebaseMessagingService, and pass the real token here.
+                put("token", deviceId)
                 put("platform", "android")
                 put("device_name", deviceName)
                 put("device_model", "${Build.MODEL}")
@@ -339,23 +342,6 @@ class ApiClient private constructor(private val context: Context) {
         } catch (e: Exception) {
             Log.e(TAG, "registerDevice error", e)
             false
-        }
-    }
-
-    suspend fun getDynamics(category: String? = null, page: Int = 1, pageSize: Int = 50): JSONObject = withContext(Dispatchers.IO) {
-        if (!isServerConfigured()) return@withContext JSONObject()
-        try {
-            val urlBuilder = StringBuilder("${getServerUrl()}/api/dynamics?page=$page&page_size=$pageSize")
-            if (!category.isNullOrEmpty()) urlBuilder.append("&category=$category")
-            val request = Request.Builder().url(urlBuilder.toString()).get().build()
-            executeWithRetry(request, JSONObject()) { resp ->
-                if (resp.isSuccessful) {
-                    JSONObject(resp.body?.string() ?: "{}")
-                } else JSONObject()
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "getDynamics error", e)
-            JSONObject()
         }
     }
 
