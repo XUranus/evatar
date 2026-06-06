@@ -172,10 +172,13 @@ export interface DynamicItem {
   created_at: string;
 }
 
-export const getDynamics = (page = 1, pageSize = 20, category?: string) =>
-  api.get<{ total: number; items: DynamicItem[] }>('/dynamics', {
-    params: { page, page_size: pageSize, ...(category ? { category } : {}) },
+export const getDynamics = (cursor = 0, limit = 30, category?: string) =>
+  api.get<{ items: DynamicItem[]; next_cursor: number | null; has_more: boolean }>('/dynamics', {
+    params: { cursor, limit, ...(category ? { category } : {}) },
   });
+
+export const getDynamicsStats = () =>
+  api.get<{ total_unread: number; by_category: Record<string, number> }>('/dynamics/stats');
 
 export const getDynamic = (id: number) => api.get<DynamicItem>(`/dynamics/${id}`);
 export const markDynamicRead = (id: number) => api.put(`/dynamics/${id}/read`);

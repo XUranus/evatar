@@ -67,7 +67,7 @@ fun DynamicTab(modifier: Modifier = Modifier, viewModel: DynamicViewModel = view
     LaunchedEffect(Unit) {
         while (true) {
             delay(60_000L)
-            viewModel.loadDynamics()
+            viewModel.refresh()
             viewModel.checkConnection()
         }
     }
@@ -76,16 +76,14 @@ fun DynamicTab(modifier: Modifier = Modifier, viewModel: DynamicViewModel = view
         refreshing = refreshing,
         onRefresh = {
             refreshing = true
-            viewModel.loadDynamics()
+            viewModel.refresh()
             viewModel.checkConnection()
         },
     )
 
     // Reset refreshing when loading completes
     LaunchedEffect(state.loading) {
-        if (!state.loading) {
-            refreshing = false
-        }
+        if (!state.loading) refreshing = false
     }
 
     Box(modifier = modifier.fillMaxSize().pullRefresh(pullRefreshState)) {
@@ -195,12 +193,36 @@ fun DynamicTab(modifier: Modifier = Modifier, viewModel: DynamicViewModel = view
                             onToggle = {
                                 val wasExpanded = expandedId == item.id
                                 expandedId = if (wasExpanded) -1 else item.id
-                                // Mark as read when expanding
                                 if (!wasExpanded && !item.isRead) {
                                     viewModel.markAsRead(item.id)
                                 }
                             },
                         )
+                    }
+
+                    // Load more trigger
+                    if (state.hasMore && !state.loading) {
+                        item {
+                            LaunchedEffect(Unit) { viewModel.loadMore() }
+                            Box(
+                                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                            }
+                        }
+                    }
+
+                    // Loading more indicator
+                    if (state.loadingMore) {
+                        item {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                            }
+                        }
                     }
                 }
             }

@@ -359,6 +359,23 @@ class ApiClient private constructor(private val context: Context) {
         }
     }
 
+    suspend fun getDynamicsPaginated(cursor: Int = 0, limit: Int = 30, category: String? = null): JSONObject = withContext(Dispatchers.IO) {
+        if (!isServerConfigured()) return@withContext JSONObject()
+        try {
+            val urlBuilder = StringBuilder("${getServerUrl()}/api/dynamics?cursor=$cursor&limit=$limit")
+            if (!category.isNullOrEmpty()) urlBuilder.append("&category=$category")
+            val request = Request.Builder().url(urlBuilder.toString()).get().build()
+            executeWithRetry(request, JSONObject()) { resp ->
+                if (resp.isSuccessful) {
+                    JSONObject(resp.body?.string() ?: "{}")
+                } else JSONObject()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "getDynamicsPaginated error", e)
+            JSONObject()
+        }
+    }
+
     suspend fun markDynamicAsRead(dynamicId: Int): Boolean = withContext(Dispatchers.IO) {
         if (!isServerConfigured()) return@withContext false
         try {

@@ -1,10 +1,10 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Markdown from 'react-markdown';
 import { Lightbulb, Clock, BarChart3, FileText, Pin, PinOff, Trash2, RefreshCw, Loader } from 'lucide-react';
+import axios from 'axios';
 import {
-  getDynamics, markDynamicRead, toggleDynamicPin, deleteDynamic, triggerReasoning,
-  markAllDynamicsRead,
+  markDynamicRead, toggleDynamicPin, deleteDynamic,
   type DynamicItem,
 } from '../api/client';
 
@@ -25,104 +25,121 @@ const categoryColors: Record<string, string> = {
 export default function DynamicsPage() {
   const { t } = useTranslation();
   const [items, setItems] = useState<DynamicItem[]>([]);
-  const [total, setTotal] = useState(0);
   const [filter, setFilter] = useState<string>('');
-  const [searchQuery, setSearchQuery] = useState('');
   const [expanded, setExpanded] = useState<number | null>(null);
   const [triggering, setTriggering] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<number>(0);
+  const [searchQuery, setSearchQuery] = useState('');
+  const observerRef = useRef<HTMLDivElement>(null);
 
+  // Load first page
   const load = () => {
-    getDynamics(1, 50, filter || undefined).then(r => {
-      setItems(r.data.items);
-      setTotal(r.data.total);
-    });
+    const params: Record<string, string | number> = { limit: 30, cursor: 0 };
+    if (filter) params.category = filter;
+
+    axios.get('/api/dynamics', { params }).then(r => {
+      setItems(r.data.items || []);
+      setNextCursor(r.data.next_cursor || 0);
+      setHasMore(r.data.has_more || false);
+    }).catch(() => {});
   };
 
   useEffect(() => { load(); }, [filter]);
 
+  // Infinite scroll observer
+  useEffect(() => {
+    if (!observerRef.current || !hasMore || loadingMore) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore && nextCursor) {
+          setLoadingMore(true);
+          const params: Record<string, string | number> = { limit: 30, cursor: nextCursor };
+          if (filter) params.category = filter;
+          axios.get('/api/dynamics', { params }).then(r => {
+            const newItems: DynamicItem[] = r.data.items || [];
+            setItems(prev => {
+              const existingIds = new Set(prev.map(i => i.id));
+              const unique = newItems.filter(i => !existingIds.has(i.id));
+              return [...prev, ...unique];
+            });
+            setNextCursor(r.data.next_cursor || 0);
+            setHasMore(r.data.has_more || false);
+          }).catch(() => {}).finally(() => setLoadingMore(false));
+        }
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(observerRef.current);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, nextCursor, filter]);
+
   const handleTrigger = async () => {
     setTriggering(true);
     try {
-      await triggerReasoning();
+      await axios.post('/api/dynamics/trigger');
       setTimeout(load, 2000);
     } finally {
       setTriggering(false);
     }
   };
 
-  const handleMarkAllRead = useCallback(() => {
-    markAllDynamicsRead().then(() => {
-      setItems(prev => prev.map(item => ({ ...item, is_read: true })));
-    });
-  }, []);
-
-  const categories = ['', 'insight', 'reminder', 'report', 'note'];
-
-  const filteredItems = searchQuery.trim()
-    ? items.filter(item =>
-        item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.summary.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.content.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredItems = searchQuery
+    ? items.filter(i =>
+        i.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        i.summary?.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : items;
 
-  const unreadCount = items.filter(item => !item.is_read).length;
+  const categories = ['', 'insight', 'reminder', 'report', 'note'] as const;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-          {t('dynamic.title', '动态')}
+          {t('dynamic.title', 'Dynamics')}
         </h1>
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center flex-wrap">
           {categories.map(c => (
             <button
               key={c}
               onClick={() => setFilter(c)}
-              className={`px-3 py-1 rounded-full text-sm border transition-colors ${
+              className={`flex items-center gap-1 px-3 py-1 rounded-full text-sm border transition-colors ${
                 filter === c
                   ? 'bg-blue-500 text-white border-blue-500'
                   : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-700 hover:border-blue-400'
               }`}
             >
-              {c ? <>{categoryIcons[c]} {t(`dynamic.categories.${c}`, c)}</> : t('dynamic.all', '全部')}
+              {c && categoryIcons[c]}
+              {c ? t(`dynamic.categories.${c}`, c) : t('dynamic.all', 'All')}
             </button>
           ))}
-          {unreadCount > 0 && (
-            <button
-              onClick={handleMarkAllRead}
-              className="px-3 py-1 bg-green-500 text-white rounded-full text-sm hover:bg-green-600"
-            >
-              ✓ {t('dynamic.mark_all_read', '全部标为已读')}
-            </button>
-          )}
           <button
             onClick={handleTrigger}
             disabled={triggering}
             className="px-3 py-1 bg-blue-500 text-white rounded-full text-sm hover:bg-blue-600 disabled:opacity-40"
           >
-            {triggering ? <Loader size={14} className="animate-spin" /> : <RefreshCw size={14} />} {t('dynamic.trigger', '生成')}
+            {triggering ? <Loader size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+            {' '}{t('dynamic.trigger', 'Generate')}
           </button>
         </div>
       </div>
 
-      {/* Search bar */}
-      <div className="relative">
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-          placeholder={t('dynamic.search_placeholder', '搜索动态...')}
-          className="w-full px-4 py-2.5 pl-10 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500"
-        />
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
-      </div>
+      {/* Search */}
+      <input
+        type="text"
+        value={searchQuery}
+        onChange={e => setSearchQuery(e.target.value)}
+        placeholder={t('dynamic.search_placeholder', 'Search dynamics...')}
+        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+      />
 
-      {filteredItems.length === 0 ? (
+      {filteredItems.length === 0 && !loadingMore ? (
         <div className="flex flex-col items-center justify-center h-64 text-gray-400 dark:text-gray-500">
-          <div className="text-4xl mb-4 text-gray-400"><FileText size={48} /></div>
-          <div className="text-lg">{t('dynamic.empty', '暂无动态')}</div>
-          <div className="text-sm mt-2">{t('dynamic.empty_desc', '后台意图推理会定期分析你的截图和聊天，生成有价值的笔记。')}</div>
+          <FileText size={48} className="mb-4 opacity-40" />
+          <div className="text-lg">{t('dynamic.empty', 'No dynamics yet')}</div>
+          <div className="text-sm mt-2">{t('dynamic.empty_desc', 'The background analyzer will generate notes from your screenshots and chats.')}</div>
         </div>
       ) : (
         <div className="space-y-4">
@@ -134,18 +151,33 @@ export default function DynamicsPage() {
               onToggle={() => {
                 const next = expanded === item.id ? null : item.id;
                 setExpanded(next);
-                if (next && !item.is_read) markDynamicRead(item.id);
+                if (next && !item.is_read) {
+                  markDynamicRead(item.id);
+                  setItems(prev => prev.map(i => i.id === item.id ? { ...i, is_read: true } : i));
+                }
               }}
               onPin={() => toggleDynamicPin(item.id).then(load)}
-              onDelete={() => { if (confirm(t('dynamic.confirm_delete'))) deleteDynamic(item.id).then(load); }}
+              onDelete={() => { if (confirm(t('dynamic.confirm_delete', 'Delete?'))) deleteDynamic(item.id).then(load); }}
             />
           ))}
-        </div>
-      )}
 
-      {total > filteredItems.length && (
-        <div className="text-center text-sm text-gray-400">
-          {t('dynamic.showing', { shown: filteredItems.length, total, defaultValue: `显示 ${filteredItems.length}/${total}` })}
+          {/* Infinite scroll trigger */}
+          {hasMore && (
+            <div ref={observerRef} className="flex justify-center py-4">
+              {loadingMore && (
+                <div className="flex items-center gap-2 text-gray-400 text-sm">
+                  <Loader size={16} className="animate-spin" />
+                  {t('dynamic.loading_more', 'Loading more...')}
+                </div>
+              )}
+            </div>
+          )}
+
+          {!hasMore && items.length > 0 && (
+            <div className="text-center text-sm text-gray-400 py-4">
+              {t('dynamic.all_loaded', 'All loaded')}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -160,17 +192,19 @@ function DynamicCard({ item, expanded, onToggle, onPin, onDelete }: {
   const color = categoryColors[item.category] || categoryColors.note;
 
   return (
-    <div className={`bg-white dark:bg-gray-900 rounded-xl shadow-sm border overflow-hidden transition-all ${
-      item.is_pinned ? 'border-blue-300 dark:border-blue-700' : 'border-gray-100 dark:border-gray-800'
-    } ${!item.is_read ? 'ring-1 ring-blue-200 dark:ring-blue-800' : ''}`}>
-      {/* Header */}
-      <div className="p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50" onClick={onToggle}>
+    <div
+      className={`bg-white dark:bg-gray-900 rounded-xl shadow-sm border overflow-hidden transition-all cursor-pointer ${
+        item.is_pinned ? 'border-blue-300 dark:border-blue-700' : 'border-gray-100 dark:border-gray-800'
+      } ${!item.is_read ? 'ring-1 ring-blue-200 dark:ring-blue-800' : ''}`}
+      onClick={onToggle}
+    >
+      <div className="p-4">
         <div className="flex items-start gap-3">
-          <span className="flex items-center justify-center" style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--bg-secondary, #f3f4f6)', color: 'var(--text-secondary)' }}>{icon}</span>
+          <div className={`p-2 rounded-lg ${color}`}>{icon}</div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <h3 className="font-semibold text-gray-800 dark:text-gray-100 truncate">{item.title}</h3>
-              {item.is_pinned && <span className="text-blue-500"><Pin size={12} /></span>}
+              {item.is_pinned && <Pin size={12} className="text-blue-500" />}
               {!item.is_read && <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />}
             </div>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{item.summary}</p>
@@ -181,25 +215,19 @@ function DynamicCard({ item, expanded, onToggle, onPin, onDelete }: {
               <span className="text-xs text-gray-400">
                 {item.created_at ? new Date(item.created_at).toLocaleString() : ''}
               </span>
-              {item.confidence && (
-                <span className="text-xs text-gray-400">
-                  {Math.round(item.confidence * 100)}%
-                </span>
-              )}
             </div>
           </div>
-          <div className="flex gap-1 flex-shrink-0">
-            <button onClick={e => { e.stopPropagation(); onPin(); }} className="p-1 text-gray-400 hover:text-blue-500" title={item.is_pinned ? t('common.unpin') : t('common.pin')}>
-              {item.is_pinned ? <Pin size={12} /> : <PinOff size={12} />}
+          <div className="flex gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
+            <button onClick={onPin} className="p-1 text-gray-400 hover:text-blue-500" title="Pin">
+              {item.is_pinned ? <Pin size={14} /> : <PinOff size={14} />}
             </button>
-            <button onClick={e => { e.stopPropagation(); onDelete(); }} className="p-1 text-gray-400 hover:text-red-500" title={t('common.delete')}>
+            <button onClick={onDelete} className="p-1 text-gray-400 hover:text-red-500" title="Delete">
               <Trash2 size={14} />
             </button>
           </div>
         </div>
       </div>
 
-      {/* Expanded content */}
       {expanded && (
         <div className="border-t border-gray-100 dark:border-gray-800 p-4">
           <div className="chat-markdown text-sm leading-relaxed">
