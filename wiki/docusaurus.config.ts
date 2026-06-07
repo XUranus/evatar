@@ -16,6 +16,10 @@ const config: Config = {
 
   onBrokenLinks: 'warn',
 
+  markdown: {
+    mermaid: true,
+  },
+
   i18n: {
     defaultLocale: 'zh-CN',
     locales: ['zh-CN', 'en'],
@@ -105,7 +109,7 @@ const config: Config = {
     },
   } satisfies Preset.ThemeConfig,
 
-  themes: [],
+  themes: ['@docusaurus/theme-mermaid'],
 };
 
 export default config;

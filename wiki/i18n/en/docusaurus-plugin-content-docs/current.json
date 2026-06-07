@@ -1,0 +1,70 @@
+{
+  "sidebar.docsSidebar.category.Getting Started": {
+    "message": "Getting Started",
+    "description": "The label for category Getting Started in sidebar docsSidebar"
+  },
+  "sidebar.docsSidebar.category.Architecture": {
+    "message": "Architecture",
+    "description": "The label for category Architecture in sidebar docsSidebar"
+  },
+  "sidebar.docsSidebar.category.Backend": {
+    "message": "Backend",
+    "description": "The label for category Backend in sidebar docsSidebar"
+  },
+  "sidebar.docsSidebar.category.Android": {
+    "message": "Android",
+    "description": "The label for category Android in sidebar docsSidebar"
+  },
+  "sidebar.docsSidebar.category.Frontend": {
+    "message": "Frontend",
+    "description": "The label for category Frontend in sidebar docsSidebar"
+  },
+  "sidebar.docsSidebar.category.Features": {
+    "message": "Features",
+    "description": "The label for category Features in sidebar docsSidebar"
+  },
+  "sidebar.docsSidebar.category.Deployment": {
+    "message": "Deployment",
+    "description": "The label for category Deployment in sidebar docsSidebar"
+  },
+  "sidebar.docsSidebar.category.Contributing": {
+    "message": "Contributing",
+    "description": "The label for category Contributing in sidebar docsSidebar"
+  },
+  "version.label": {
+    "message": "Next",
+    "description": "The label for version current"
+  },
+  "sidebar.docsSidebar.category.快速开始": {
+    "message": "Getting Started",
+    "description": "The label for category Getting Started in sidebar docsSidebar"
+  },
+  "sidebar.docsSidebar.category.架构": {
+    "message": "Architecture",
+    "description": "The label for category Architecture in sidebar docsSidebar"
+  },
+  "sidebar.docsSidebar.category.后端": {
+    "message": "Backend",
+    "description": "The label for category Backend in sidebar docsSidebar"
+  },
+  "sidebar.docsSidebar.category.Android": {
+    "message": "Android",
+    "description": "The label for category Android in sidebar docsSidebar"
+  },
+  "sidebar.docsSidebar.category.前端": {
+    "message": "Frontend",
+    "description": "The label for category Frontend in sidebar docsSidebar"
+  },
+  "sidebar.docsSidebar.category.功能特性": {
+    "message": "Features",
+    "description": "The label for category Features in sidebar docsSidebar"
+  },
+  "sidebar.docsSidebar.category.部署": {
+    "message": "Deployment",
+    "description": "The label for category Deployment in sidebar docsSidebar"
+  },
+  "sidebar.docsSidebar.category.贡献": {
+    "message": "Contributing",
+    "description": "The label for category Contributing in sidebar docsSidebar"
+  }
+}
