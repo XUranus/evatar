@@ -49,3 +49,8 @@ android/.kotlin/
 wiki/node_modules/
 wiki/build/
 wiki/.docusaurus/
+
+# Docusaurus build artifacts
+docs/node_modules/
+docs/build/
+docs/.docusaurus/

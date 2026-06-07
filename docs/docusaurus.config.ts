@@ -11,8 +11,8 @@ const config: Config = {
     v4: true,
   },
 
-  url: 'http://localhost',
-  baseUrl: '/',
+  url: 'https://xuranus.github.io',
+  baseUrl: '/evatar/',
 
   onBrokenLinks: 'warn',
 
