@@ -44,3 +44,8 @@ backend/.encryption_key
 
 # Kotlin
 android/.kotlin/
+
+# Wiki build artifacts
+wiki/node_modules/
+wiki/build/
+wiki/.docusaurus/
